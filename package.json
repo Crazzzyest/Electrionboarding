@@ -1,0 +1,17 @@
+{
+  "name": "electi-onboarding",
+  "version": "1.0.0",
+  "description": "Electi automatisert onboarding — fra godkjent kandidat til opprettet bruker og sendte bestillinger",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "type": "commonjs",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "docusign-esign": "^10.0.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "node-cron": "^4.6.0"
+  }
+}

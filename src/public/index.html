@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Electi Onboarding</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; padding-bottom: 60px; }
+
+  .topnav { background: #1a3c5c; display: flex; align-items: center; padding: 0 24px; height: 56px; gap: 12px; }
+  .topnav .logo { color: white; font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
+  .topnav .subtitle { color: rgba(255,255,255,0.7); font-size: 13px; }
+  .mode-badge { margin-left: auto; padding: 4px 14px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .mode-badge.demo { background: #ffeb3b; color: #333; }
+  .mode-badge.test { background: #ff9800; color: white; }
+  .mode-badge.live { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
+
+  .demo-banner { background: #fff8c5; border-bottom: 1px solid #f0d97d; color: #6b5900; padding: 10px 24px; font-size: 13px; }
+
+  .wrap { max-width: 920px; margin: 24px auto; padding: 0 16px; }
+
+  .card { background: white; border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .card h2 { font-size: 15px; margin-bottom: 14px; color: #1a3c5c; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+  .form-grid label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+  .form-grid input, .form-grid select { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+  .form-grid input:focus, .form-grid select:focus { outline: none; border-color: #1a3c5c; }
+  .form-actions { margin-top: 16px; display: flex; align-items: center; gap: 12px; }
+  .form-msg { font-size: 13px; }
+  .form-msg.err { color: #c62828; }
+  .form-msg.ok { color: #2e7d32; }
+
+  .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
+  .btn-primary { background: #1a3c5c; color: white; }
+  .btn-primary:hover { background: #234f78; }
+  .btn-outline { background: white; color: #555; border: 1px solid #ddd; }
+  .btn-outline:hover { background: #f5f5f5; }
+  .btn-warn { background: #ff9800; color: white; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  .candidate { border: 1px solid #eee; border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; }
+  .candidate-head { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+  .candidate-name { font-weight: 600; font-size: 14px; flex: 1; }
+  .candidate-meta { font-size: 12px; color: #888; }
+
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .badge { padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-venter, .badge-ikke-sendt { background: #eceff1; color: #607d8b; }
+  .badge-kjorer, .badge-sendt { background: #fff3e0; color: #e65100; }
+  .badge-ok, .badge-signert { background: #d9ead3; color: #1a5c2a; }
+  .badge-feilet, .badge-avslatt { background: #fce4ec; color: #c62828; }
+
+  .detail { margin-top: 14px; padding-top: 14px; border-top: 1px dashed #ddd; display: none; }
+  .detail.open { display: block; }
+  .detail-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+  .detail-actions { display: flex; align-items: center; gap: 8px; }
+  .force-label { font-size: 11px; color: #888; display: flex; align-items: center; gap: 4px; }
+
+  .log { margin-top: 12px; font-size: 12px; color: #666; max-height: 160px; overflow-y: auto; background: #fafafa; border-radius: 6px; padding: 8px 10px; }
+  .log-entry { padding: 3px 0; border-bottom: 1px solid #eee; }
+  .log-entry:last-child { border-bottom: none; }
+
+  .empty { color: #999; font-size: 13px; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="logo">Electi Onboarding</div>
+  <div class="subtitle">Fra godkjent kandidat til opprettet bruker</div>
+  <div class="mode-badge live" id="modeBadge">…</div>
+</div>
+<div class="demo-banner" id="demoBanner" style="display:none;">
+  <strong>Demo-modus:</strong> ingen ekte kontoer opprettes og ingen e-poster sendes. Data lagres kun i minnet mens serveren kjører.
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>Registrer godkjent kandidat</h2>
+    <form id="regForm">
+      <div class="form-grid">
+        <div><label>Fornavn</label><input name="fornavn" required></div>
+        <div><label>Etternavn</label><input name="etternavn" required></div>
+        <div><label>Fødselsdato</label><input name="fodselsdato" type="date" required></div>
+        <div><label>Privat e-post</label><input name="privatEpost" type="email" required></div>
+        <div><label>Mobil</label><input name="mobil" required></div>
+        <div><label>Adresse (valgfritt)</label><input name="adresse"></div>
+        <div><label>Stilling</label><input name="stilling" required></div>
+        <div><label>Stillingsprosent</label><input name="stillingsprosent" type="number" min="1" max="100" placeholder="100" required></div>
+        <div><label>Avdeling/Team</label><input name="avdeling" required></div>
+        <div><label>Nærmeste leder (navn og tittel)</label><input name="naermesteLeder" placeholder="F.eks. Magnus Buran, prosjektleder" required></div>
+        <div><label>Startdato (valgfritt)</label><input name="startdato" type="date"></div>
+        <div><label>Registrert av (deg)</label><input name="registrertAv" required></div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Registrer og send kontrakt</button>
+        <span class="form-msg" id="regMsg"></span>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Kandidater</h2>
+    <div id="candidateList"><div class="empty">Laster…</div></div>
+  </div>
+
+</div>
+
+<script>
+const STEPS = [
+  { key: 'statusMicrosoft365', label: 'Microsoft365', step: 'microsoft365' },
+  { key: 'statusTelenor', label: 'Telenor', step: 'telenor' },
+  { key: 'statusSalesscreen', label: 'SalesScreen', step: 'salesscreen' },
+  { key: 'statusVelkommen', label: 'Velkommen', step: 'velkommen' },
+];
+
+let demoMode = false;
+let openRow = null;
+
+function badgeClass(status) {
+  return 'badge-' + String(status || '').toLowerCase().replace(/ø/g, 'o').replace(/å/g, 'a').replace(/\s+/g, '-');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('nb-NO') + ' ' + d.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function loadHealth() {
+  const res = await fetch('/health');
+  const data = await res.json();
+  demoMode = data.demoMode;
+  const badge = document.getElementById('modeBadge');
+  if (data.demoMode) {
+    badge.textContent = 'DEMO';
+    badge.className = 'mode-badge demo';
+    document.getElementById('demoBanner').style.display = 'block';
+  } else if (data.testMode) {
+    badge.textContent = 'TEST';
+    badge.className = 'mode-badge test';
+  } else {
+    badge.textContent = 'LIVE';
+    badge.className = 'mode-badge live';
+  }
+}
+
+async function loadCandidates() {
+  const res = await fetch('/api/candidates');
+  const data = await res.json();
+  const list = document.getElementById('candidateList');
+  if (!data.success || !data.candidates.length) {
+    list.innerHTML = '<div class="empty">Ingen kandidater registrert ennå.</div>';
+    return;
+  }
+  list.innerHTML = data.candidates
+    .slice().reverse()
+    .map(renderCandidate)
+    .join('');
+
+  for (const c of data.candidates) {
+    document.getElementById('head-' + c.row)?.addEventListener('click', () => toggleDetail(c.row));
+  }
+  wireActions();
+
+  if (openRow) await loadDetail(openRow);
+}
+
+function renderCandidate(c) {
+  const isOpen = openRow === c.row;
+  return `
+    <div class="candidate" data-row="${c.row}">
+      <div class="candidate-head" id="head-${c.row}">
+        <div class="candidate-name">${c.fornavn} ${c.etternavn}</div>
+        <div class="candidate-meta">${c.stilling} · ${c.avdeling} · ${c.kandidatId}</div>
+      </div>
+      <div class="badges">
+        <span class="badge ${badgeClass(c.statusKontrakt)}">Kontrakt: ${c.statusKontrakt}</span>
+        ${STEPS.map((s) => `<span class="badge ${badgeClass(c[s.key])}">${s.label}: ${c[s.key]}</span>`).join('')}
+      </div>
+      <div class="detail ${isOpen ? 'open' : ''}" id="detail-${c.row}"></div>
+    </div>
+  `;
+}
+
+function toggleDetail(row) {
+  openRow = openRow === row ? null : row;
+  loadCandidates();
+}
+
+async function loadDetail(row) {
+  const el = document.getElementById('detail-' + row);
+  if (!el) return;
+  const res = await fetch('/api/candidates/' + row);
+  const data = await res.json();
+  if (!data.success) { el.innerHTML = '<div class="empty">Kunne ikke laste detaljer.</div>'; return; }
+
+  const c = data.candidate;
+  const contractSigned = c.statusKontrakt === 'Signert';
+
+  const rows = STEPS.map((s) => {
+    const status = c[s.key];
+    const disabled = !contractSigned;
+    return `
+      <div class="detail-row">
+        <span>${s.label}: <strong>${status}</strong></span>
+        <span class="detail-actions">
+          ${!contractSigned ? '<label class="force-label"><input type="checkbox" class="force-cb" data-step="' + s.step + '"> tving</label>' : ''}
+          <button class="btn btn-outline btn-sm retry-btn" data-row="${row}" data-step="${s.step}">Kjør på nytt</button>
+        </span>
+      </div>
+    `;
+  }).join('');
+
+  const contractActions = [];
+  if (c.statusKontrakt === 'Ikke sendt' || c.statusKontrakt === 'Feilet') {
+    contractActions.push(`<button class="btn btn-outline btn-sm resend-btn" data-row="${row}">Send kontrakt</button>`);
+  }
+  if (demoMode && !contractSigned) {
+    contractActions.push(`<button class="btn btn-warn btn-sm simulate-btn" data-row="${row}">Simuler signering (demo)</button>`);
+  }
+
+  const logHtml = (data.log || []).length
+    ? data.log.map((e) => `<div class="log-entry">${fmtDate(e.tidspunkt)} — <strong>${e.steg}</strong> ${e.handling}${e.melding ? ' — ' + e.melding : ''} <em>(${e.kilde})</em></div>`).join('')
+    : '<div class="log-entry">Ingen hendelser ennå.</div>';
+
+  el.innerHTML = `
+    <div class="detail-row">
+      <span>Kontrakt: <strong>${c.statusKontrakt}</strong> ${c.docusignEnvelopeId ? '(' + c.docusignEnvelopeId + ')' : ''}</span>
+      <span class="detail-actions">${contractActions.join('')}</span>
+    </div>
+    ${rows}
+    <div class="detail-row"><button class="btn btn-outline btn-sm retryall-btn" data-row="${row}">Kjør alle ventende steg på nytt</button></div>
+    ${c.sisteFeilmelding ? '<div class="form-msg err">Siste feil: ' + c.sisteFeilmelding + '</div>' : ''}
+    <div class="log">${logHtml}</div>
+  `;
+  wireActions();
+}
+
+function wireActions() {
+  document.querySelectorAll('.retry-btn').forEach((btn) => {
+    btn.onclick = async () => {
+      const row = btn.dataset.row;
+      const step = btn.dataset.step;
+      const forceCb = document.querySelector('.force-cb[data-step="' + step + '"]');
+      btn.disabled = true;
+      await fetch('/api/candidates/' + row + '/retry', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step, force: forceCb ? forceCb.checked : false }),
+      });
+      await loadDetail(row);
+      await loadCandidates();
+    };
+  });
+  document.querySelectorAll('.retryall-btn').forEach((btn) => {
+    btn.onclick = async () => {
+      const row = btn.dataset.row;
+      btn.disabled = true;
+      await fetch('/api/candidates/' + row + '/retry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      await loadDetail(row);
+      await loadCandidates();
+    };
+  });
+  document.querySelectorAll('.resend-btn').forEach((btn) => {
+    btn.onclick = async () => {
+      const row = btn.dataset.row;
+      btn.disabled = true;
+      await fetch('/api/candidates/' + row + '/resend-contract', { method: 'POST' });
+      await loadDetail(row);
+      await loadCandidates();
+    };
+  });
+  document.querySelectorAll('.simulate-btn').forEach((btn) => {
+    btn.onclick = async () => {
+      const row = btn.dataset.row;
+      btn.disabled = true;
+      await fetch('/api/demo/simulate-signed/' + row, { method: 'POST' });
+      await loadDetail(row);
+      await loadCandidates();
+    };
+  });
+}
+
+document.getElementById('regForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('regMsg');
+  msg.textContent = '';
+  msg.className = 'form-msg';
+
+  const fields = Object.fromEntries(new FormData(e.target).entries());
+  const res = await fetch('/api/candidates', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields),
+  });
+  const data = await res.json();
+  if (data.success) {
+    msg.textContent = 'Registrert: ' + data.candidate.kandidatId + ' — kontrakt sendes.';
+    msg.classList.add('ok');
+    e.target.reset();
+    openRow = data.candidate.row;
+    await loadCandidates();
+  } else {
+    msg.textContent = data.error || 'Noe gikk galt.';
+    msg.classList.add('err');
+  }
+});
+
+async function refresh() {
+  await loadCandidates();
+}
+
+loadHealth().then(loadCandidates);
+setInterval(refresh, 4000);
+</script>
+
+</body>
+</html>

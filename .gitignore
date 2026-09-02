@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.sliplane
+docusign-private-key.pem
+docusign-private-key.pem.base64
+data/
+.claude/
+*.bak
+*.log
+.DS_Store
