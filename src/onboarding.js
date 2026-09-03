@@ -64,6 +64,24 @@ const STEP_ADAPTERS = {
   },
 };
 
+// Turns a raw adapter/Graph error into a short, human message for the UI and the log. The raw
+// error is still written to the server console for debugging — the client-facing status just
+// should not show JSON blobs or stack traces, especially for steps that are simply waiting on an
+// admin-granted Microsoft permission rather than actually broken.
+function friendlyError(raw) {
+  const m = String(raw || '');
+  if (/Mail\.Send|Mail\.Read|sendAsMailbox/i.test(m)) {
+    return 'E-post ikke aktivert ennå — venter på Mail-tillatelse og avsender-postboks fra Electis admin.';
+  }
+  if (/Authorization_RequestDenied|Insufficient privileges|(^|\D)403(\D|$)/.test(m)) {
+    return 'Venter på Microsoft-tillatelse fra Electis admin (se docs/MICROSOFT-ADMIN-SETUP.md).';
+  }
+  if (/ikke konfigurert|not configured|ikke satt/i.test(m)) {
+    return m.split('{')[0].trim(); // already human — just drop any JSON tail
+  }
+  return m.split('{')[0].trim() || 'Ukjent feil';
+}
+
 async function runStep(row, stepName, { force = false, trigger = LOGG_KILDE.MANUELL } = {}) {
   const adapter = STEP_ADAPTERS[stepName];
   if (!adapter) throw new Error(`Ukjent steg: ${stepName}`);
@@ -112,11 +130,14 @@ async function runStep(row, stepName, { force = false, trigger = LOGG_KILDE.MANU
       result.demoMode ? '(demo)' : '', trigger,
     );
   } else {
+    const raw = result.error || 'Ukjent feil';
+    console.error(`Steg "${stepName}" feilet:`, raw);
+    const melding = friendlyError(raw);
     await storage.updateCandidateFields(row, {
       [adapter.statusField]: STEG_STATUS.FEILET,
-      sisteFeilmelding: result.error || 'Ukjent feil',
+      sisteFeilmelding: melding,
     });
-    await storage.appendLog(candidate.kandidatId, stepName, LOGG_HANDLING.FEILET, result.error || 'Ukjent feil', trigger);
+    await storage.appendLog(candidate.kandidatId, stepName, LOGG_HANDLING.FEILET, melding, trigger);
   }
 
   return result;
@@ -177,11 +198,14 @@ async function sendContract(row) {
       result.demoMode ? '(demo)' : '', LOGG_KILDE.REGISTRERING,
     );
   } else {
+    const raw = result.error || 'Ukjent feil';
+    console.error('Steg "kontrakt" feilet:', raw);
+    const melding = friendlyError(raw);
     await storage.updateCandidateFields(row, {
       statusKontrakt: KONTRAKT_STATUS.FEILET,
-      sisteFeilmelding: result.error || 'Ukjent feil',
+      sisteFeilmelding: melding,
     });
-    await storage.appendLog(candidate.kandidatId, 'kontrakt', LOGG_HANDLING.FEILET, result.error || 'Ukjent feil', LOGG_KILDE.REGISTRERING);
+    await storage.appendLog(candidate.kandidatId, 'kontrakt', LOGG_HANDLING.FEILET, melding, LOGG_KILDE.REGISTRERING);
   }
 
   return result;
