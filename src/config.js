@@ -126,8 +126,14 @@ const config = {
     // simpler than the original proposal implied: subject "Ny selger", and a body listing only
     // name, phone and the new hire's @electi.no address. It does NOT mention Salesforce or Ransel
     // by name — see the open question in docs/SETUP-CHECKLIST.md.
-    orderTo: ['c-view.admin@telenor.no', 'kasper-maehlum.kvesetberget@telenor.no'],
-    orderCc: ['audun.paulsen@electi.no', 'daniel.kolstad@electi.no'],
+    // Real recipients by default. For safe testing, redirect the order mail to a test inbox by
+    // setting TELENOR_ORDER_TO (and optionally TELENOR_ORDER_CC), comma-separated, on the host — so
+    // no real order ever reaches Telenor during a test signing. Remove those env vars to restore the
+    // real recipients for go-live.
+    orderTo: (process.env.TELENOR_ORDER_TO || 'c-view.admin@telenor.no,kasper-maehlum.kvesetberget@telenor.no')
+      .split(',').map((s) => s.trim()).filter(Boolean),
+    orderCc: (process.env.TELENOR_ORDER_CC || 'audun.paulsen@electi.no,daniel.kolstad@electi.no')
+      .split(',').map((s) => s.trim()).filter(Boolean),
     subject: 'Ny selger',
   },
 
