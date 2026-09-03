@@ -152,7 +152,15 @@ app.post('/webhooks/docusign',
     } else if (!config.demoMode) {
       const signature = req.headers['x-docusign-signature-1'];
       if (!docusign.verifyConnectSignature(req.rawBody, signature)) {
-        console.error('DocuSign webhook avvist: HMAC-verifisering feilet (401). Sjekk at DOCUSIGN_CONNECT_HMAC_KEY stemmer med DocuSign Connect Keys.');
+        // Diagnostics (safe: logs only lengths + short prefixes of derived signatures, never the key).
+        const key = config.docusign.connectHmacKey || '';
+        const computed = key && req.rawBody
+          ? require('crypto').createHmac('sha256', key).update(req.rawBody).digest('base64')
+          : '(mangler nokkel eller body)';
+        console.error(
+          `DocuSign webhook 401 (HMAC): header=${signature ? signature.slice(0, 12) + '…' : 'MANGLER'} `
+          + `computed=${computed.slice(0, 12)}… keyLen=${key.length} bodyLen=${req.rawBody ? req.rawBody.length : 0}`,
+        );
         return res.status(401).end();
       }
     }
