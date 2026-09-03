@@ -84,7 +84,9 @@ const config = {
     privateKeyBase64: process.env.DOCUSIGN_PRIVATE_KEY_BASE64,
     privateKeyPath: process.env.DOCUSIGN_PRIVATE_KEY_PATH
       || path.resolve(__dirname, '..', 'docusign-private-key.pem'),
-    connectHmacKey: process.env.DOCUSIGN_CONNECT_HMAC_KEY,
+    // Trimmed: a trailing newline/space from pasting the key into the host's env is the most
+    // common cause of a Connect HMAC mismatch (401 on every webhook), and it is invisible.
+    connectHmacKey: (process.env.DOCUSIGN_CONNECT_HMAC_KEY || '').trim(),
     templateId: 'c53d4f46-11ed-48ba-8800-053aa3afe989', // "Arbeidsavtale" template, rebuilt 2026-09-02
     signerRoleName: 'Arbeidstaker', // matches the rebuilt template's role name (was "Ansatt")
     // Discovered 2026-09-02 by reading the rebuilt template's real tab definitions via the API. The

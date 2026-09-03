@@ -143,9 +143,16 @@ async function handleEnvelopeEvent(event) {
 app.post('/webhooks/docusign',
   express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }),
   async (req, res) => {
-    if (!config.demoMode) {
+    // DOCUSIGN_CONNECT_SKIP_HMAC=true bypasses signature verification — a TEST-ONLY escape hatch
+    // for when the shared HMAC secret can't be confirmed (e.g. during first setup). Leaves the
+    // endpoint unauthenticated, so turn it off again for real use.
+    const skipHmac = process.env.DOCUSIGN_CONNECT_SKIP_HMAC === 'true';
+    if (skipHmac) {
+      console.warn('DOCUSIGN_CONNECT_SKIP_HMAC=true — webhook-signatur verifiseres IKKE (kun for test).');
+    } else if (!config.demoMode) {
       const signature = req.headers['x-docusign-signature-1'];
       if (!docusign.verifyConnectSignature(req.rawBody, signature)) {
+        console.error('DocuSign webhook avvist: HMAC-verifisering feilet (401). Sjekk at DOCUSIGN_CONNECT_HMAC_KEY stemmer med DocuSign Connect Keys.');
         return res.status(401).end();
       }
     }
