@@ -217,7 +217,14 @@ app.post('/api/check-birthdays', async (req, res) => {
 // STATIC FRONTEND
 // ============================================================
 
-app.use(express.static(path.join(__dirname, 'public')));
+// no-cache on HTML so a browser tab always revalidates and picks up a new deploy on a normal
+// refresh — otherwise a stale cached index.html keeps running old JS after a redeploy. Other
+// assets can still be cached normally.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 
 // ============================================================
 // CRON JOBS (skipped in demo mode)
