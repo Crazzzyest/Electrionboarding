@@ -120,6 +120,8 @@ const STEPS = [
 
 let demoMode = false;
 let openRow = null;
+let lastListHtml = '';
+let lastDetailHtml = '';
 
 function badgeClass(status) {
   return 'badge-' + String(status || '').toLowerCase().replace(/ø/g, 'o').replace(/å/g, 'a').replace(/\s+/g, '-');
@@ -155,18 +157,25 @@ async function loadCandidates() {
   const data = await res.json();
   const list = document.getElementById('candidateList');
   if (!data.success || !data.candidates.length) {
-    list.innerHTML = '<div class="empty">Ingen kandidater registrert ennå.</div>';
+    if (lastListHtml !== 'EMPTY') {
+      list.innerHTML = '<div class="empty">Ingen kandidater registrert ennå.</div>';
+      lastListHtml = 'EMPTY';
+    }
     return;
   }
-  list.innerHTML = data.candidates
-    .slice().reverse()
-    .map(renderCandidate)
-    .join('');
-
-  for (const c of data.candidates) {
-    document.getElementById('head-' + c.row)?.addEventListener('click', () => toggleDetail(c.row));
+  const html = data.candidates.slice().reverse().map(renderCandidate).join('');
+  // Only touch the DOM when something actually changed. Re-rendering the whole list on every 4s
+  // poll tore down all nodes and reset scroll/selection (the "hikking"); now an unchanged poll is
+  // a no-op.
+  if (html !== lastListHtml) {
+    lastListHtml = html;
+    lastDetailHtml = ''; // detail panels were recreated empty — force a refill below
+    list.innerHTML = html;
+    for (const c of data.candidates) {
+      document.getElementById('head-' + c.row)?.addEventListener('click', () => toggleDetail(c.row));
+    }
+    wireActions();
   }
-  wireActions();
 
   if (openRow) await loadDetail(openRow);
 }
@@ -190,6 +199,7 @@ function renderCandidate(c) {
 
 function toggleDetail(row) {
   openRow = openRow === row ? null : row;
+  lastDetailHtml = '';
   loadCandidates();
 }
 
@@ -229,7 +239,7 @@ async function loadDetail(row) {
     ? data.log.map((e) => `<div class="log-entry">${fmtDate(e.tidspunkt)} — <strong>${e.steg}</strong> ${e.handling}${e.melding ? ' — ' + e.melding : ''} <em>(${e.kilde})</em></div>`).join('')
     : '<div class="log-entry">Ingen hendelser ennå.</div>';
 
-  el.innerHTML = `
+  const html = `
     <div class="detail-row">
       <span>Kontrakt: <strong>${c.statusKontrakt}</strong> ${c.docusignEnvelopeId ? '(' + c.docusignEnvelopeId + ')' : ''}</span>
       <span class="detail-actions">${contractActions.join('')}</span>
@@ -239,7 +249,13 @@ async function loadDetail(row) {
     ${c.sisteFeilmelding ? '<div class="form-msg err">Siste feil: ' + c.sisteFeilmelding + '</div>' : ''}
     <div class="log">${logHtml}</div>
   `;
-  wireActions();
+  // Skip the DOM write when the detail is unchanged — keeps the log's scroll position and avoids
+  // the flicker on every poll. Only re-renders (and re-wires) when the content actually changed.
+  if (html !== lastDetailHtml) {
+    lastDetailHtml = html;
+    el.innerHTML = html;
+    wireActions();
+  }
 }
 
 function wireActions() {
