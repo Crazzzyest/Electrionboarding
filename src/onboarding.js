@@ -98,7 +98,8 @@ async function runStep(row, stepName, { force = false, trigger = LOGG_KILDE.MANU
   }
 
   if (result.ok) {
-    const updates = { [adapter.statusField]: STEG_STATUS.OK };
+    // Clear any stale error from an earlier failed attempt now that the step has succeeded.
+    const updates = { [adapter.statusField]: STEG_STATUS.OK, sisteFeilmelding: '' };
     if (adapter.doneField) updates[adapter.doneField] = new Date().toISOString();
     if (adapter.extraUpdates) {
       for (const [field, value] of Object.entries(adapter.extraUpdates(result))) {

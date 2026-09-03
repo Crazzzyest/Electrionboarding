@@ -101,6 +101,26 @@ async function ensureGroups(userId, avdeling) {
   return { added };
 }
 
+// A newly created Azure AD user is not instantly visible to every Graph endpoint (eventual
+// consistency): assignLicense and checkMemberGroups can return 404 "Request_ResourceNotFound" for
+// a few seconds after POST /users. Retry those specific 404s a handful of times so the first
+// automatic run (the DocuSign webhook) completes, instead of failing and needing a manual retry.
+function isResourceNotFound(err) {
+  const m = (err && err.message) || '';
+  return / 404 /.test(m) || /Request_ResourceNotFound/i.test(m) || /does not exist/i.test(m);
+}
+
+async function withPropagationRetry(fn, attempts = 5, delayMs = 3000) {
+  for (let i = 0; ; i += 1) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i >= attempts - 1 || !isResourceNotFound(e)) throw e;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+
 async function ensure(candidate, ctx) {
   if (config.demoMode) {
     return {
@@ -130,8 +150,10 @@ async function ensure(candidate, ctx) {
       tempPassword = created.tempPassword;
     }
 
-    const license = await ensureLicense(user.id);
-    const groups = await ensureGroups(user.id, candidate.avdeling);
+    // Wrapped in propagation-retry: on a just-created account these can 404 until Azure AD catches
+    // up. For an already-existing user the first call succeeds and no retry happens.
+    const license = await withPropagationRetry(() => ensureLicense(user.id));
+    const groups = await withPropagationRetry(() => ensureGroups(user.id, candidate.avdeling));
 
     return {
       ok: true,
