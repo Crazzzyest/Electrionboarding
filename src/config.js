@@ -21,9 +21,12 @@ const config = {
   //   Graph's row-add/row-update API needs a named Table, not a bare range) on each worksheet.
   // See docs/SETUP-CHECKLIST.md — excel-storage.js refuses to guess at any of this.
   excel: {
-    siteId: '',
+    // Verified live 2026-09-04: workbook created in the root SharePoint site's document library,
+    // with real Tables "Ansatte" (32 cols) and "Logg" (6 cols). The Logg worksheet is named
+    // "Loggark" because "Logg" is a reserved sheet name in Norwegian Excel — the TABLE is "Logg".
+    siteId: 'electi.sharepoint.com,115eb03c-2edd-4386-9056-0888d93b4bbb,ae813d16-db52-48ae-a9c4-9153f46d721f',
     driveId: '',
-    itemPath: '',
+    itemPath: '/Onboarding/Electi-Onboarding.xlsx',
     ansatteTable: 'Ansatte',
     loggTable: 'Logg',
   },
@@ -47,7 +50,7 @@ const config = {
     // Graph's app-only Mail.Send always sends as a specific mailbox — there's no "service account
     // with no inbox" option — so this has to be a real, licensed mailbox Electi is fine with
     // seeing as the sender. See docs/SETUP-CHECKLIST.md.
-    sendAsMailbox: '',
+    sendAsMailbox: 'edson.reistad@electi.no', // verified live 2026-09-04: licensed, sends OK
   },
 
   microsoft: {
