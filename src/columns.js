@@ -32,9 +32,13 @@ const COL = {
   SISTE_BURSDAGSVARSEL_AR: 30,
   NOTATER: 31,
   SISTE_FEILMELDING: 32,
+  // Lagt til etter de opprinnelige 32 kolonnene (ikke midt i) med vilje: å sette den inn tidligere
+  // ville forskjøvet alle etterfølgende indekser og brutt det live Excel-arket. Kontonummer for
+  // lønn — samles inn i skjemaet, brukes ikke av noe integrasjonssteg ennå.
+  KONTONUMMER: 33,
 };
 
-const NUM_COLS = 32;
+const NUM_COLS = 33;
 
 // Column headers, in order — written as row 1 when the sheet is first set up.
 const HEADERS = [
@@ -45,7 +49,7 @@ const HEADERS = [
   'Status Telenor', 'Telenor bestilling sendt dato',
   'Status SalesScreen', 'SalesScreen UserID', 'SalesScreen fullført dato',
   'Status Velkommen', 'Velkommen sendt dato',
-  'Siste bursdagsvarsel år', 'Notater', 'Siste feilmelding',
+  'Siste bursdagsvarsel år', 'Notater', 'Siste feilmelding', 'Kontonummer',
 ];
 
 const STEG_STATUS = {

@@ -119,13 +119,21 @@ const config = {
     // endpoint exists, so idempotency relies entirely on that upsert behavior — see salesscreen.js.
     baseUrl: 'https://connect.salesscreen.com/api/v1',
     createUserEndpoint: '/User/Add',
-    // Confirmed by Magnus (2026-08-21): new users go into the "Telenor" team.
-    // "key" is SalesScreen's match/auto-create identifier (their own docs: "all IDs in requests
-    // should be IDs from your system") — NOT verified against whatever key their existing
-    // "Telenor" team was created with, so this could create a second team with the same display
-    // name instead of matching the real one. Confirm the real key in SalesScreen (Settings ->
-    // Mappings) before relying on this for anything but a throwaway test. See SETUP-CHECKLIST.md.
-    team: { key: 'Telenor', name: 'Telenor' },
+    // New hires should land in Electi's leadership/manager team ("ledergruppen"). The SalesScreen
+    // "connect" API is WRITE-ONLY — verified 2026-09-05: every list endpoint (/Team, /Team/List,
+    // /Group, /User/List, …) returns 404, and SalesScreen's own API FAQ says team management must
+    // be done in the platform, not via the API — so the exact team can't be discovered
+    // programmatically. It lives in SalesScreen under Settings -> Mappings.
+    //
+    // CRITICAL: "key" is SalesScreen's match/auto-create identifier. POST /User/Add auto-CREATES a
+    // team if the key doesn't already exist — so a wrong key silently makes a DUPLICATE team with
+    // the same display name instead of putting the user in the real one. Read the real leadership
+    // team's key from Settings -> Mappings and set SALESSCREEN_TEAM_KEY (+ _NAME) on the host. The
+    // 'Telenor' fallback is only the old confirmed default from Magnus (2026-08-21); override it.
+    team: {
+      key: process.env.SALESSCREEN_TEAM_KEY || 'Telenor',
+      name: process.env.SALESSCREEN_TEAM_NAME || process.env.SALESSCREEN_TEAM_KEY || 'Telenor',
+    },
   },
 
   telenor: {

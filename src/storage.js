@@ -34,6 +34,7 @@ const FIELD_TO_COL = {
   sisteBursdagsvarselAr: COL.SISTE_BURSDAGSVARSEL_AR,
   notater: COL.NOTATER,
   sisteFeilmelding: COL.SISTE_FEILMELDING,
+  kontonummer: COL.KONTONUMMER,
 };
 
 function rowToCandidate(values, rowNumber) {
@@ -72,6 +73,7 @@ function rowToCandidate(values, rowNumber) {
     sisteBursdagsvarselAr: get(COL.SISTE_BURSDAGSVARSEL_AR),
     notater: get(COL.NOTATER),
     sisteFeilmelding: get(COL.SISTE_FEILMELDING),
+    kontonummer: get(COL.KONTONUMMER),
   };
 }
 
@@ -140,6 +142,7 @@ async function createCandidate(fields) {
     sisteBursdagsvarselAr: '',
     notater: '',
     sisteFeilmelding: '',
+    kontonummer: fields.kontonummer || '',
   };
 
   if (config.demoMode) {
@@ -169,6 +172,7 @@ async function createCandidate(fields) {
   row[COL.STATUS_TELENOR - 1] = candidate.statusTelenor;
   row[COL.STATUS_SALESSCREEN - 1] = candidate.statusSalesscreen;
   row[COL.STATUS_VELKOMMEN - 1] = candidate.statusVelkommen;
+  row[COL.KONTONUMMER - 1] = candidate.kontonummer;
 
   await backend.appendRow(config.excel.ansatteTable, row);
 

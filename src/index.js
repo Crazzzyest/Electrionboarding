@@ -50,7 +50,7 @@ app.get('/api/candidates/:row', async (req, res) => {
 });
 
 const REQUIRED_FIELDS = [
-  'fornavn', 'etternavn', 'fodselsdato', 'privatEpost', 'mobil',
+  'fornavn', 'etternavn', 'fodselsdato', 'privatEpost', 'mobil', 'kontonummer',
   'stilling', 'stillingsprosent', 'avdeling', 'naermesteLeder', 'registrertAv',
 ];
 
