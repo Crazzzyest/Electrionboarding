@@ -29,6 +29,7 @@ const config = {
     itemPath: '/Onboarding/Electi-Onboarding.xlsx',
     ansatteTable: 'Ansatte',
     loggTable: 'Logg',
+    offboardingTable: 'Offboarding',
   },
 
   storage: {
@@ -150,6 +151,27 @@ const config = {
     orderCc: (process.env.TELENOR_ORDER_CC || 'audun.paulsen@electi.no,daniel.kolstad@electi.no')
       .split(',').map((s) => s.trim()).filter(Boolean),
     subject: 'Ny selger',
+  },
+
+  // Offboarding (scope-addition after V1). Every policy choice is an env var so Electi can set them
+  // in Sliplane without a code change. Recipients fall back to onboarding equivalents where sensible.
+  offboarding: {
+    // 'immediate' runs the steps the moment an offboarding is registered; 'scheduled' waits until
+    // the sluttdato — a daily cron (07:00 Europe/Oslo) then runs the ones that have come due.
+    timing: (process.env.OFFBOARDING_TIMING || 'immediate').trim().toLowerCase(),
+    // What to do with the Microsoft 365 account: 'disable' blocks sign-in AND frees the licence
+    // seat but keeps the mailbox (retention-friendly); 'delete' removes the user entirely.
+    microsoftAction: (process.env.OFFBOARDING_MICROSOFT_ACTION || 'disable').trim().toLowerCase(),
+    // Where the commission-handling notice goes when a departing seller has provisjonskrav.
+    provisjonEpost: (process.env.OFFBOARDING_PROVISJON_EPOST || '').trim(),
+    // SalesScreen's connect API is write-only with no confirmed deactivation endpoint, so that step
+    // is a human handoff: a reminder mail to this address. Defaults to the provisjon recipient.
+    salesscreenVarselEpost: (process.env.OFFBOARDING_SALESSCREEN_EPOST
+      || process.env.OFFBOARDING_PROVISJON_EPOST || '').trim(),
+    // Telenor cancellation mail. Recipients default to the same order contacts as onboarding.
+    telenorSubject: process.env.OFFBOARDING_TELENOR_SUBJECT || 'Avslutning selger',
+    telenorTo: (process.env.OFFBOARDING_TELENOR_TO || '').split(',').map((s) => s.trim()).filter(Boolean),
+    telenorCc: (process.env.OFFBOARDING_TELENOR_CC || '').split(',').map((s) => s.trim()).filter(Boolean),
   },
 
   port: parseInt(process.env.PORT, 10) || 3000,

@@ -2,6 +2,10 @@ function generateKandidatId(year, seq) {
   return `ONB-${year}-${String(seq).padStart(3, '0')}`;
 }
 
+function generateOffboardingId(year, seq) {
+  return `OFB-${year}-${String(seq).padStart(3, '0')}`;
+}
+
 function generateTempPassword() {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const lower = 'abcdefghijkmnpqrstuvwxyz';
@@ -58,6 +62,7 @@ function isSameMonthDay(isoDateStr, { month, day }) {
 
 module.exports = {
   generateKandidatId,
+  generateOffboardingId,
   generateTempPassword,
   slugifyName,
   todayInTimezone,

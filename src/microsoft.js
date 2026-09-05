@@ -121,6 +121,40 @@ async function withPropagationRetry(fn, attempts = 5, delayMs = 3000) {
   }
 }
 
+// Offboarding: block or remove a departing employee's Microsoft 365 account. 'disable' sets
+// accountEnabled=false and strips the licence (frees the seat) while keeping the mailbox for
+// retention; 'delete' removes the user entirely. Idempotent — a not-found user, or an account
+// already disabled/unlicensed, is treated as success rather than an error, so a retry is safe.
+async function offboardUser(upn, action = 'disable') {
+  const user = await findUserByUpn(upn);
+  if (!user) {
+    return { ok: true, details: { notFound: true, note: `Fant ingen konto for ${upn} (allerede fjernet?)` } };
+  }
+
+  if (action === 'delete') {
+    const res = await graphRequest('DELETE', `/users/${user.id}`);
+    if (!res.ok && res.status !== 404) throw new Error(`Graph DELETE user-feil: ${res.status} ${await res.text()}`);
+    return { ok: true, externalId: user.id, details: { action: 'delete' } };
+  }
+
+  // disable: block sign-in
+  const patch = await graphRequest('PATCH', `/users/${user.id}`, { accountEnabled: false });
+  if (!patch.ok) throw new Error(`Graph disable-konto-feil: ${patch.status} ${await patch.text()}`);
+
+  // free the licence seat (only if one is assigned — removing an absent licence errors)
+  const removed = [];
+  for (const lic of user.assignedLicenses || []) {
+    if (!lic.skuId) continue;
+    const r = await graphRequest('POST', `/users/${user.id}/assignLicense`, {
+      addLicenses: [], removeLicenses: [lic.skuId],
+    });
+    if (!r.ok) throw new Error(`Graph removeLicense-feil: ${r.status} ${await r.text()}`);
+    removed.push(lic.skuId);
+  }
+
+  return { ok: true, externalId: user.id, details: { action: 'disable', licensesRemoved: removed } };
+}
+
 async function ensure(candidate, ctx) {
   if (config.demoMode) {
     return {
@@ -177,4 +211,4 @@ async function ensure(candidate, ctx) {
   }
 }
 
-module.exports = { ensure, buildUpn, resetTempPassword };
+module.exports = { ensure, buildUpn, resetTempPassword, offboardUser };

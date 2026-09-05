@@ -88,12 +88,14 @@ function buildSeedCandidates() {
 
 const state = {
   candidates: buildSeedCandidates(),
+  offboardings: [],
   log: [],
   nextSeq: 3,
 };
 
 function resetDemoState() {
   state.candidates = buildSeedCandidates();
+  state.offboardings = [];
   state.log = [];
   state.nextSeq = 3;
 }

@@ -4,6 +4,7 @@ const cron = require('node-cron');
 const config = require('./config');
 const storage = require('./storage');
 const onboarding = require('./onboarding');
+const offboarding = require('./offboarding');
 const docusign = require('./docusign');
 const birthday = require('./birthday');
 const { KONTRAKT_STATUS, LOGG_HANDLING, LOGG_KILDE } = require('./columns');
@@ -111,6 +112,75 @@ app.post('/api/candidates/:row/resend-contract', async (req, res) => {
     res.json({ success: true, result });
   } catch (e) {
     console.error('resend-contract error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ============================================================
+// OFFBOARDING (egen fane)
+// ============================================================
+
+app.get('/api/offboardings', async (req, res) => {
+  try {
+    const offboardings = await storage.listOffboardings();
+    res.json({ success: true, offboardings });
+  } catch (e) {
+    console.error('list offboardings error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/offboardings/:row', async (req, res) => {
+  try {
+    const off = await storage.getOffboarding(req.params.row);
+    if (!off) return res.status(404).json({ success: false, error: 'Ikke funnet' });
+    const log = await storage.listLog(off.offboardingId);
+    res.json({ success: true, offboarding: off, log });
+  } catch (e) {
+    console.error('get offboarding error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+const OFF_REQUIRED_FIELDS = ['navn', 'microsoftUpn', 'sluttdato', 'registrertAv'];
+
+app.post('/api/offboardings', express.json(), async (req, res) => {
+  try {
+    const missing = OFF_REQUIRED_FIELDS.filter((f) => !req.body[f]);
+    if (missing.length) {
+      return res.status(400).json({ success: false, error: `Mangler felt: ${missing.join(', ')}` });
+    }
+
+    const off = await storage.createOffboarding({
+      ...req.body,
+      harProvisjon: req.body.harProvisjon === true || req.body.harProvisjon === 'true' || req.body.harProvisjon === 'Ja',
+    });
+    await storage.appendLog(off.offboardingId, 'offboarding', LOGG_HANDLING.FULLFORT, 'Registrert', LOGG_KILDE.REGISTRERING);
+
+    // Timing policy: 'immediate' fires the steps now; 'scheduled' waits for the daily cron to pick
+    // it up once sluttdato has arrived.
+    if (config.offboarding.timing !== 'scheduled') {
+      offboarding.runOffboarding(off.row, { trigger: LOGG_KILDE.REGISTRERING })
+        .catch((e) => console.error('runOffboarding error:', e));
+    }
+
+    res.json({ success: true, offboarding: off, scheduled: config.offboarding.timing === 'scheduled' });
+  } catch (e) {
+    console.error('create offboarding error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/offboardings/:row/retry', express.json(), async (req, res) => {
+  try {
+    const { step } = req.body || {};
+    const { row } = req.params;
+    const result = step
+      ? await offboarding.runOffboardingStep(row, step, { trigger: LOGG_KILDE.MANUELL })
+      : await offboarding.runOffboarding(row, { trigger: LOGG_KILDE.MANUELL });
+    res.json({ success: true, result });
+  } catch (e) {
+    console.error('offboarding retry error:', e);
     res.status(500).json({ success: false, error: e.message });
   }
 });
@@ -245,6 +315,18 @@ if (config.demoMode) {
       console.error('Cron check-birthdays error:', e.message);
     }
   }, { timezone: 'Europe/Oslo' });
+
+  // Only relevant when offboarding uses scheduled timing — runs the ones whose sluttdato has come.
+  if (config.offboarding.timing === 'scheduled') {
+    cron.schedule('0 7 * * *', async () => {
+      try {
+        const result = await offboarding.runDueOffboardings();
+        console.log(`Cron: offboarding-sjekk fullført, ${result.ran} kjørt.`);
+      } catch (e) {
+        console.error('Cron offboarding error:', e.message);
+      }
+    }, { timezone: 'Europe/Oslo' });
+  }
 }
 
 // ============================================================

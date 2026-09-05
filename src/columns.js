@@ -67,6 +67,35 @@ const KONTRAKT_STATUS = {
   FEILET: 'Feilet',
 };
 
+// "Offboarding" tab — a separate lifecycle from Ansatte (a departing seller may predate this
+// system and not exist as a candidate row at all), so it gets its own table rather than more
+// columns on Ansatte. Input is name + Electi-address + last day + whether commission is owed;
+// the rest are per-step statuses, mirroring the onboarding model.
+const OFF_COL = {
+  OFFBOARDING_ID: 1,
+  NAVN: 2,
+  MICROSOFT_UPN: 3,
+  SLUTTDATO: 4,
+  HAR_PROVISJON: 5,
+  REGISTRERT_AV: 6,
+  REGISTRERT_DATO: 7,
+  STATUS_MICROSOFT: 8,
+  STATUS_TELENOR: 9,
+  STATUS_SALESSCREEN: 10,
+  STATUS_PROVISJON: 11,
+  UTFORT_DATO: 12,
+  SISTE_FEILMELDING: 13,
+};
+
+const OFF_NUM_COLS = 13;
+
+const OFF_HEADERS = [
+  'OffboardingID', 'Navn', 'Electi e-post (UPN)', 'Sluttdato', 'Har provisjon',
+  'Registrert av', 'Registrert dato',
+  'Status Microsoft', 'Status Telenor', 'Status SalesScreen', 'Status Provisjon',
+  'Utført dato', 'Siste feilmelding',
+];
+
 // "Logg" tab columns, fixed order, append-only (no COL map needed — never updated by index).
 const LOGG_HEADERS = ['Tidspunkt', 'KandidatID', 'Steg', 'Handling', 'Melding', 'Kilde'];
 
@@ -86,6 +115,7 @@ const LOGG_KILDE = {
 
 module.exports = {
   COL, NUM_COLS, HEADERS,
+  OFF_COL, OFF_NUM_COLS, OFF_HEADERS,
   STEG_STATUS, KONTRAKT_STATUS,
   LOGG_HEADERS, LOGG_HANDLING, LOGG_KILDE,
 };

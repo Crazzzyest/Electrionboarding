@@ -12,8 +12,10 @@ const backend = config.storage.backend === 'local'
   ? require('./local-storage')
   : require('./excel-storage');
 const demoData = require('./demo-data');
-const { COL, NUM_COLS, STEG_STATUS, KONTRAKT_STATUS } = require('./columns');
-const { generateKandidatId } = require('./utils');
+const {
+  COL, NUM_COLS, STEG_STATUS, KONTRAKT_STATUS, OFF_COL, OFF_NUM_COLS,
+} = require('./columns');
+const { generateKandidatId, generateOffboardingId } = require('./utils');
 
 const FIELD_TO_COL = {
   statusKontrakt: COL.STATUS_KONTRAKT,
@@ -227,6 +229,119 @@ async function listLog(kandidatId) {
     .reverse();
 }
 
+// ---- Offboarding (separate table, same backend) ----------------------------------------------
+
+const OFF_FIELD_TO_COL = {
+  statusMicrosoft: OFF_COL.STATUS_MICROSOFT,
+  statusTelenor: OFF_COL.STATUS_TELENOR,
+  statusSalesscreen: OFF_COL.STATUS_SALESSCREEN,
+  statusProvisjon: OFF_COL.STATUS_PROVISJON,
+  utfortDato: OFF_COL.UTFORT_DATO,
+  sisteFeilmelding: OFF_COL.SISTE_FEILMELDING,
+};
+
+function rowToOffboarding(values, rowNumber) {
+  const get = (col) => values[col - 1] || '';
+  return {
+    row: rowNumber,
+    offboardingId: get(OFF_COL.OFFBOARDING_ID),
+    navn: get(OFF_COL.NAVN),
+    microsoftUpn: get(OFF_COL.MICROSOFT_UPN),
+    sluttdato: get(OFF_COL.SLUTTDATO),
+    harProvisjon: get(OFF_COL.HAR_PROVISJON),
+    registrertAv: get(OFF_COL.REGISTRERT_AV),
+    registrertDato: get(OFF_COL.REGISTRERT_DATO),
+    statusMicrosoft: get(OFF_COL.STATUS_MICROSOFT) || STEG_STATUS.VENTER,
+    statusTelenor: get(OFF_COL.STATUS_TELENOR) || STEG_STATUS.VENTER,
+    statusSalesscreen: get(OFF_COL.STATUS_SALESSCREEN) || STEG_STATUS.VENTER,
+    statusProvisjon: get(OFF_COL.STATUS_PROVISJON) || STEG_STATUS.VENTER,
+    utfortDato: get(OFF_COL.UTFORT_DATO),
+    sisteFeilmelding: get(OFF_COL.SISTE_FEILMELDING),
+  };
+}
+
+async function listOffboardings() {
+  if (config.demoMode) {
+    return demoData.state.offboardings.map((o) => ({ ...o }));
+  }
+  const rows = await backend.getSheetData(config.excel.offboardingTable);
+  return rows
+    .slice(1)
+    .map((values, i) => rowToOffboarding(values, i + 2))
+    .filter((o) => o.offboardingId);
+}
+
+async function getOffboarding(row) {
+  const all = await listOffboardings();
+  return all.find((o) => o.row === Number(row)) || null;
+}
+
+async function createOffboarding(fields) {
+  const all = await listOffboardings();
+  const year = new Date().getFullYear();
+  const countThisYear = all.filter((o) => o.offboardingId.startsWith(`OFB-${year}-`)).length;
+  const offboardingId = generateOffboardingId(year, countThisYear + 1);
+  const now = new Date().toISOString();
+
+  const offboarding = {
+    offboardingId,
+    navn: fields.navn,
+    microsoftUpn: fields.microsoftUpn || '',
+    sluttdato: fields.sluttdato || '',
+    // Stored as a plain "Ja"/"Nei" so the sheet is human-readable.
+    harProvisjon: fields.harProvisjon ? 'Ja' : 'Nei',
+    registrertAv: fields.registrertAv || '',
+    registrertDato: now,
+    statusMicrosoft: STEG_STATUS.VENTER,
+    statusTelenor: STEG_STATUS.VENTER,
+    statusSalesscreen: STEG_STATUS.VENTER,
+    // If no commission is owed, that step is a no-op from the start — mark it OK so the row can
+    // reach "fully done" without a manual skip.
+    statusProvisjon: fields.harProvisjon ? STEG_STATUS.VENTER : STEG_STATUS.OK,
+    utfortDato: '',
+    sisteFeilmelding: '',
+  };
+
+  if (config.demoMode) {
+    const row = Math.max(1, ...demoData.state.offboardings.map((o) => o.row), 1) + 1;
+    demoData.state.offboardings.push({ ...offboarding, row });
+    return { ...offboarding, row };
+  }
+
+  const row = new Array(OFF_NUM_COLS).fill('');
+  row[OFF_COL.OFFBOARDING_ID - 1] = offboarding.offboardingId;
+  row[OFF_COL.NAVN - 1] = offboarding.navn;
+  row[OFF_COL.MICROSOFT_UPN - 1] = offboarding.microsoftUpn;
+  row[OFF_COL.SLUTTDATO - 1] = offboarding.sluttdato;
+  row[OFF_COL.HAR_PROVISJON - 1] = offboarding.harProvisjon;
+  row[OFF_COL.REGISTRERT_AV - 1] = offboarding.registrertAv;
+  row[OFF_COL.REGISTRERT_DATO - 1] = offboarding.registrertDato;
+  row[OFF_COL.STATUS_MICROSOFT - 1] = offboarding.statusMicrosoft;
+  row[OFF_COL.STATUS_TELENOR - 1] = offboarding.statusTelenor;
+  row[OFF_COL.STATUS_SALESSCREEN - 1] = offboarding.statusSalesscreen;
+  row[OFF_COL.STATUS_PROVISJON - 1] = offboarding.statusProvisjon;
+
+  await backend.appendRow(config.excel.offboardingTable, row);
+
+  const refreshed = await listOffboardings();
+  return refreshed.find((o) => o.offboardingId === offboardingId);
+}
+
+async function updateOffboardingFields(row, fields) {
+  if (config.demoMode) {
+    const o = demoData.state.offboardings.find((x) => x.row === Number(row));
+    if (o) Object.assign(o, fields);
+    return;
+  }
+
+  const updates = Object.entries(fields)
+    .filter(([key]) => OFF_FIELD_TO_COL[key])
+    .map(([key, value]) => ({ col: OFF_FIELD_TO_COL[key], value }));
+
+  if (!updates.length) return;
+  await backend.updateCells(config.excel.offboardingTable, row, updates);
+}
+
 module.exports = {
   listCandidates,
   getCandidate,
@@ -235,4 +350,8 @@ module.exports = {
   updateCandidateFields,
   appendLog,
   listLog,
+  listOffboardings,
+  getOffboarding,
+  createOffboarding,
+  updateOffboardingFields,
 };
