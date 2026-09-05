@@ -70,8 +70,12 @@ app.post('/api/candidates', express.json(), async (req, res) => {
     });
     await storage.appendLog(candidate.kandidatId, 'registrering', LOGG_HANDLING.FULLFORT, 'Kandidat registrert', LOGG_KILDE.REGISTRERING);
 
-    // Registering *is* what sends the contract.
+    // Registrering trigger nå ALLE flytene med én gang, som uavhengige løp — kontrakten sendes
+    // (egen flyt) parallelt med Microsoft/SalesScreen/Telenor/Velkomst, i stedet for at de venter
+    // på en signert kontrakt. Begge kjører fire-and-forget slik at skjemaet svarer umiddelbart.
     onboarding.sendContract(candidate.row).catch((e) => console.error('sendContract error:', e));
+    onboarding.runOnboardingSteps(candidate.row, { trigger: LOGG_KILDE.REGISTRERING })
+      .catch((e) => console.error('runOnboardingSteps error:', e));
 
     res.json({ success: true, candidate });
   } catch (e) {

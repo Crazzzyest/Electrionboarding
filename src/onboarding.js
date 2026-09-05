@@ -89,10 +89,10 @@ async function runStep(row, stepName, { force = false, trigger = LOGG_KILDE.MANU
   const candidate = await storage.getCandidate(row);
   if (!candidate) return { skipped: true, reason: 'Kandidat ikke funnet' };
 
-  if (!force && candidate.statusKontrakt !== KONTRAKT_STATUS.SIGNERT) {
-    return { skipped: true, reason: 'Venter på signert kontrakt' };
-  }
-
+  // NB: steg gates ikke lenger på signert kontrakt — kontrakten er nå en egen, sidestilt flyt
+  // (se runOnboardingSteps). De eneste rekkefølge-kravene som står igjen er de tekniske
+  // dependsOn (telenor/velkommen trenger Microsoft-kontoen). `force` beholdes som manuell
+  // override for edge-cases.
   if (candidate[adapter.statusField] === STEG_STATUS.OK) {
     await storage.appendLog(candidate.kandidatId, stepName, LOGG_HANDLING.HOPPET_OVER, 'Allerede OK', trigger);
     return { skipped: true, ok: true, reason: 'Allerede fullført' };
@@ -152,17 +152,28 @@ async function runOnboardingSteps(row, { trigger = LOGG_KILDE.MANUELL } = {}) {
   try {
     const candidate = await storage.getCandidate(row);
     if (!candidate) return { skipped: true, reason: 'Kandidat ikke funnet' };
-    if (candidate.statusKontrakt !== KONTRAKT_STATUS.SIGNERT) {
-      return { skipped: true, reason: 'Venter på signert kontrakt' };
-    }
 
-    // microsoft365 and salesscreen are independent of each other; telenor and velkommen both
-    // need the Microsoft account to exist first (see dependsOn in STEP_ADAPTERS), so they run
-    // after it rather than alongside.
+    // Uavhengige, sidestilte flyter — de starter så snart skjemaet sendes inn, ikke etter en
+    // signert kontrakt. To grener kjører i parallell:
+    //   • microsoft365 → deretter telenor + velkommen (som teknisk trenger Microsoft-kontoen)
+    //   • salesscreen (helt uavhengig)
+    // Hvert steg er idempotent og hopper over seg selv hvis det allerede er OK, så en retry eller
+    // et senere webhook-kall gjør ingen skade.
     const results = {};
-    for (const step of ['microsoft365', 'salesscreen', 'telenor', 'velkommen']) {
-      results[step] = await runStep(row, step, { trigger });
-    }
+    const microsoftBranch = (async () => {
+      results.microsoft365 = await runStep(row, 'microsoft365', { trigger });
+      const [tel, vel] = await Promise.all([
+        runStep(row, 'telenor', { trigger }),
+        runStep(row, 'velkommen', { trigger }),
+      ]);
+      results.telenor = tel;
+      results.velkommen = vel;
+    })();
+    const salesscreenBranch = (async () => {
+      results.salesscreen = await runStep(row, 'salesscreen', { trigger });
+    })();
+
+    await Promise.all([microsoftBranch, salesscreenBranch]);
 
     return { ok: true, results };
   } finally {

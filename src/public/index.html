@@ -215,12 +215,10 @@ async function loadDetail(row) {
 
   const rows = STEPS.map((s) => {
     const status = c[s.key];
-    const disabled = !contractSigned;
     return `
       <div class="detail-row">
         <span>${s.label}: <strong>${status}</strong></span>
         <span class="detail-actions">
-          ${!contractSigned ? '<label class="force-label"><input type="checkbox" class="force-cb" data-step="' + s.step + '"> tving</label>' : ''}
           <button class="btn btn-outline btn-sm retry-btn" data-row="${row}" data-step="${s.step}">Kjør på nytt</button>
         </span>
       </div>

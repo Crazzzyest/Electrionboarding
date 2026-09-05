@@ -45,7 +45,9 @@ const config = {
   },
 
   email: {
-    managementEmail: '', // TODO: who receives birthday notifications — see docs/SETUP-CHECKLIST.md
+    // Who receives birthday notifications. Overridable via env (MANAGEMENT_EMAIL) so Electi can
+    // point it at real management later without a redeploy; defaults to Edson's address for now.
+    managementEmail: process.env.MANAGEMENT_EMAIL || 'edson.reistad@effektivaltruisme.no',
     // TODO: which real mailbox automated mail is sent FROM (Telenor order, welcome, birthday).
     // Graph's app-only Mail.Send always sends as a specific mailbox — there's no "service account
     // with no inbox" option — so this has to be a real, licensed mailbox Electi is fine with
