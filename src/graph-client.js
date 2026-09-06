@@ -28,24 +28,43 @@ async function getAccessToken() {
   return cachedToken;
 }
 
-async function graphRequest(method, path, body) {
-  const token = await getAccessToken();
-  return fetch(`${GRAPH_BASE}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+function parseRetryAfterMs(res, attempt) {
+  const h = res.headers.get('retry-after');
+  const secs = h != null ? Number(h) : NaN;
+  if (Number.isFinite(secs)) return Math.min(secs * 1000, 30000);
+  return Math.min(1000 * 2 ** (attempt - 1), 8000); // exponential fallback, capped
+}
+
+// Retries on 429 (throttling, incl. Excel's EditModeCannotAcquireLockTooManyRequests) and 503,
+// honouring the Retry-After header when present. Everything else — including 4xx — is returned to
+// the caller as-is. extraHeaders lets workbook calls attach a workbook-session-id (see excel-storage).
+async function graphRequest(method, path, body, extraHeaders) {
+  const maxAttempts = 5;
+  for (let attempt = 1; ; attempt += 1) {
+    const token = await getAccessToken();
+    const res = await fetch(`${GRAPH_BASE}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(extraHeaders || {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if ((res.status === 429 || res.status === 503) && attempt < maxAttempts) {
+      await new Promise((r) => setTimeout(r, parseRetryAfterMs(res, attempt)));
+      continue;
+    }
+    return res;
+  }
 }
 
 // Throws with the response body on non-2xx, otherwise returns parsed JSON, or null when there is
 // no body. Several Graph writes return an empty body: 204 No Content (e.g. PATCH /users), but also
 // 202 Accepted (e.g. sendMail) — so keying only on 204 made res.json() throw "Unexpected end of
 // JSON input" on a perfectly successful send. Read the text once and only parse if non-empty.
-async function graphJson(method, path, body) {
-  const res = await graphRequest(method, path, body);
+async function graphJson(method, path, body, extraHeaders) {
+  const res = await graphRequest(method, path, body, extraHeaders);
   if (!res.ok) throw new Error(`Graph ${method} ${path} feilet: ${res.status} ${await res.text()}`);
   const text = await res.text();
   return text ? JSON.parse(text) : null;

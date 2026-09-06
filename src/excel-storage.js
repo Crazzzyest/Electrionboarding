@@ -34,10 +34,44 @@ function tablePath(tableName) {
   return `${itemBasePath()}/workbook/tables/${encodeURIComponent(tableName)}`;
 }
 
+// A persistent workbook session is the documented fix for EditModeCannotAcquireLockTooManyRequests:
+// without one, Graph opens (and locks) a fresh session per write, so parallel steps writing to the
+// same workbook collide on the edit lock. With persistChanges:true, all our reads/writes share one
+// session and one lock. The session id is cached; a single in-flight createSession promise prevents
+// parallel callers from opening several. Graph expires idle sessions (~7 min), so on a session error
+// we drop the cache and retry once with a fresh one.
+let sessionPromise = null;
+function getSessionId() {
+  if (!sessionPromise) {
+    sessionPromise = graphJson('POST', `${itemBasePath()}/workbook/createSession`, { persistChanges: true })
+      .then((d) => d.id)
+      .catch((e) => { sessionPromise = null; throw e; });
+  }
+  return sessionPromise;
+}
+
+function isSessionError(err) {
+  const m = (err && err.message) || '';
+  return /session/i.test(m) || / 404 /.test(m) || /InvalidSession|invalidSessionId|expired/i.test(m);
+}
+
+// All workbook calls go through this so they carry the session id (and recover if it expired).
+async function wb(method, path, body) {
+  const sid = await getSessionId();
+  try {
+    return await graphJson(method, path, body, { 'workbook-session-id': sid });
+  } catch (e) {
+    if (!isSessionError(e)) throw e;
+    sessionPromise = null; // force a fresh session and retry once
+    const sid2 = await getSessionId();
+    return graphJson(method, path, body, { 'workbook-session-id': sid2 });
+  }
+}
+
 // Data rows only, in table order — the Tables API never includes the header row here (that's
 // separate table metadata), unlike Sheets' values.get which includes row 1.
 async function getTableRowsRaw(tableName) {
-  const data = await graphJson('GET', `${tablePath(tableName)}/rows?$select=values`);
+  const data = await wb('GET', `${tablePath(tableName)}/rows?$select=values`);
   // Each row's `values` is a single-row 2D array ([[cell1, cell2, ...]]) even for one row —
   // a Range-API quirk carried over into the Tables API.
   return (data.value || []).map((r) => r.values[0]);
@@ -53,7 +87,7 @@ async function getSheetData(tableName) {
 }
 
 async function appendRow(tableName, rowValues) {
-  await graphJson('POST', `${tablePath(tableName)}/rows/add`, { values: [rowValues] });
+  await wb('POST', `${tablePath(tableName)}/rows/add`, { values: [rowValues] });
 }
 
 async function updateCell(tableName, row, col, value) {
@@ -72,7 +106,7 @@ async function updateCells(tableName, row, updates) {
     const merged = [...current];
     for (const { col, value } of updates) merged[col - 1] = value;
 
-    await graphJson('PATCH', `${tablePath(tableName)}/rows/itemAt(index=${tableRowIndex})`, { values: [merged] });
+    await wb('PATCH', `${tablePath(tableName)}/rows/itemAt(index=${tableRowIndex})`, { values: [merged] });
   });
 }
 
