@@ -49,11 +49,13 @@ const config = {
     // Who receives birthday notifications. Overridable via env (MANAGEMENT_EMAIL) so Electi can
     // point it at real management later without a redeploy; defaults to Edson's address for now.
     managementEmail: process.env.MANAGEMENT_EMAIL || 'edson.reistad@effektivaltruisme.no',
-    // TODO: which real mailbox automated mail is sent FROM (Telenor order, welcome, birthday).
-    // Graph's app-only Mail.Send always sends as a specific mailbox — there's no "service account
-    // with no inbox" option — so this has to be a real, licensed mailbox Electi is fine with
-    // seeing as the sender. See docs/SETUP-CHECKLIST.md.
-    sendAsMailbox: 'edson.reistad@electi.no', // verified live 2026-09-04: licensed, sends OK
+    // Which mailbox automated mail is sent FROM (Telenor order, welcome, birthday). Graph's app-only
+    // Mail.Send always sends as a specific mailbox, but that mailbox can be a licence-free SHARED
+    // mailbox (e.g. onboarding@electi.no) — the org-owned, person-independent option. Override via
+    // EMAIL_SEND_AS in Sliplane once the shared mailbox exists; defaults to Edson's mailbox for now.
+    // The Mail.Read idempotency check (searchMail) reads this same mailbox, so it must be readable
+    // by the app too (app-only Mail.Read already covers all mailboxes). See docs/SETUP-CHECKLIST.md.
+    sendAsMailbox: process.env.EMAIL_SEND_AS || 'edson.reistad@electi.no',
   },
 
   microsoft: {
