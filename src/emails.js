@@ -9,11 +9,12 @@ function buildWelcomeEmailHtml(candidate, tempPassword) {
     <p>Hei ${candidate.fornavn},</p>
     <p>Velkommen til Electi! Din nye Microsoft-konto er klar:</p>
     <p>
+      <strong>Logg inn:</strong> <a href="https://portal.office.com">https://portal.office.com</a><br>
       <strong>Brukernavn:</strong> ${candidate.microsoftUpn}<br>
       <strong>Midlertidig passord:</strong> ${tempPassword}<br>
       (du blir bedt om å bytte passord ved første innlogging)
     </p>
-    <p>Merk: det kan ta noen minutter før innboksen din blir tilgjengelig etter at kontoen er opprettet.</p>
+    <p>E-posten din finner du på <a href="https://outlook.office.com">https://outlook.office.com</a>. Merk: det kan ta noen minutter før innboksen din blir tilgjengelig etter at kontoen er opprettet.</p>
     <p>Vi gleder oss til å ha deg med på laget!</p>
   `;
 }
