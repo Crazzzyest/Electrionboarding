@@ -148,13 +148,11 @@ const config = {
     // real recipients for go-live.
     orderTo: (process.env.TELENOR_ORDER_TO || 'c-view.admin@telenor.no,kasper-maehlum.kvesetberget@telenor.no')
       .split(',').map((s) => s.trim()).filter(Boolean),
-    // Bruk `!== undefined` (ikke `||`) så en eksplisitt TOM TELENOR_ORDER_CC skrur av CC helt —
-    // med `||` ville en tom streng falt tilbake på standard-mottakerne. Sett TELENOR_ORDER_CC= (tom)
-    // i Sliplane for å midlertidig ikke kopiere Audun/Daniel.
-    orderCc: (process.env.TELENOR_ORDER_CC !== undefined
-      ? process.env.TELENOR_ORDER_CC
-      : 'audun.paulsen@electi.no,daniel.kolstad@electi.no')
-      .split(',').map((s) => s.trim()).filter(Boolean),
+    // Sliplane-variabler kan ikke være tomme, så for å midlertidig skru AV CC (Audun/Daniel) settes
+    // TELENOR_ORDER_CC=none (eller "ingen"/"-"). Sentinel-ordet filtreres bort → ingen CC.
+    orderCc: (process.env.TELENOR_ORDER_CC || 'audun.paulsen@electi.no,daniel.kolstad@electi.no')
+      .split(',').map((s) => s.trim()).filter(Boolean)
+      .filter((s) => !['none', 'ingen', '-'].includes(s.toLowerCase())),
     subject: 'Ny selger',
   },
 
