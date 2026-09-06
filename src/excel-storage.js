@@ -5,11 +5,24 @@
 //
 // One real API difference from Sheets worth knowing: Excel Tables have no per-cell PATCH.
 // updateCells() has to read the row, merge the requested columns into it, and PATCH the whole
-// row back — see updateCells() below. At this app's write volume (one onboarding step at a
-// time, never concurrent writes to the same row) that read-before-write isn't a correctness
-// risk, just an extra round trip.
+// row back — see updateCells() below. Because onboarding/offboarding steps now run in parallel,
+// several updateCells() calls CAN hit the same row at once, and read-merge-write would then lose
+// updates (each reads the same stale row and PATCHes back the whole thing, last writer wins). A
+// per-row async lock (withRowLock) serialises those so each re-reads after the previous PATCH.
 const config = require('./config');
 const { graphJson } = require('./graph-client');
+
+// Per-key promise chain: withRowLock(key, fn) runs fn only after the previous fn for the same key
+// has settled, so concurrent read-merge-write cycles on one row queue instead of clobbering. The
+// stored tail is error-swallowed so one failure doesn't wedge the chain; the caller still gets the
+// real result/error.
+const rowChains = new Map();
+function withRowLock(key, fn) {
+  const prev = rowChains.get(key) || Promise.resolve();
+  const next = prev.then(fn, fn);
+  rowChains.set(key, next.catch(() => {}));
+  return next;
+}
 
 function itemBasePath() {
   if (config.excel.siteId) return `/sites/${config.excel.siteId}/drive/root:${config.excel.itemPath}:`;
@@ -49,15 +62,18 @@ async function updateCell(tableName, row, col, value) {
 
 async function updateCells(tableName, row, updates) {
   if (!updates.length) return;
-  const tableRowIndex = row - 2; // Sheets-style absolute row (header=1) -> 0-based table row index
-  const rows = await getTableRowsRaw(tableName);
-  const current = rows[tableRowIndex];
-  if (!current) throw new Error(`Fant ikke rad ${row} i tabellen "${tableName}"`);
+  // Serialise read-merge-write per row so parallel steps don't clobber each other's columns.
+  await withRowLock(`${tableName}#${row}`, async () => {
+    const tableRowIndex = row - 2; // Sheets-style absolute row (header=1) -> 0-based table row index
+    const rows = await getTableRowsRaw(tableName);
+    const current = rows[tableRowIndex];
+    if (!current) throw new Error(`Fant ikke rad ${row} i tabellen "${tableName}"`);
 
-  const merged = [...current];
-  for (const { col, value } of updates) merged[col - 1] = value;
+    const merged = [...current];
+    for (const { col, value } of updates) merged[col - 1] = value;
 
-  await graphJson('PATCH', `${tablePath(tableName)}/rows/itemAt(index=${tableRowIndex})`, { values: [merged] });
+    await graphJson('PATCH', `${tablePath(tableName)}/rows/itemAt(index=${tableRowIndex})`, { values: [merged] });
+  });
 }
 
 module.exports = { getSheetData, appendRow, updateCell, updateCells };

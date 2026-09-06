@@ -40,13 +40,15 @@ async function graphRequest(method, path, body) {
   });
 }
 
-// Throws with the response body on non-2xx, otherwise returns parsed JSON (or null for 204s) —
-// most callers just want the happy path without repeating the same ok-check everywhere.
+// Throws with the response body on non-2xx, otherwise returns parsed JSON, or null when there is
+// no body. Several Graph writes return an empty body: 204 No Content (e.g. PATCH /users), but also
+// 202 Accepted (e.g. sendMail) — so keying only on 204 made res.json() throw "Unexpected end of
+// JSON input" on a perfectly successful send. Read the text once and only parse if non-empty.
 async function graphJson(method, path, body) {
   const res = await graphRequest(method, path, body);
   if (!res.ok) throw new Error(`Graph ${method} ${path} feilet: ${res.status} ${await res.text()}`);
-  if (res.status === 204) return null;
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 module.exports = { GRAPH_BASE, getAccessToken, graphRequest, graphJson };
