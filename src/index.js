@@ -199,13 +199,14 @@ async function handleEnvelopeEvent(event) {
   }
 
   if (event.status === 'completed') {
+    // Registrering trigger allerede alle stegene, så signering skal KUN registrere at kontrakten
+    // er signert — den kjører dem bevisst ikke på nytt (et tidligere feilet steg skal rettes via
+    // "Kjør på nytt" i UI, ikke fyres automatisk av en signering).
     await storage.updateCandidateFields(candidate.row, {
       statusKontrakt: KONTRAKT_STATUS.SIGNERT,
       kontraktSignertDato: new Date().toISOString(),
     });
     await storage.appendLog(candidate.kandidatId, 'kontrakt', LOGG_HANDLING.FULLFORT, 'Signert', LOGG_KILDE.WEBHOOK);
-    onboarding.runOnboardingSteps(candidate.row, { trigger: LOGG_KILDE.WEBHOOK })
-      .catch((e) => console.error('runOnboardingSteps error:', e));
   } else if (event.status === 'declined' || event.status === 'voided') {
     await storage.updateCandidateFields(candidate.row, { statusKontrakt: KONTRAKT_STATUS.AVSLATT });
     await storage.appendLog(candidate.kandidatId, 'kontrakt', LOGG_HANDLING.FEILET, `Status: ${event.status}`, LOGG_KILDE.WEBHOOK);
