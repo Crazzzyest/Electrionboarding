@@ -21,6 +21,24 @@ function generateTempPassword() {
   return pwd.split('').sort(() => Math.random() - 0.5).join('');
 }
 
+// Excel (via Graph) returns date-typed cells as a serial NUMBER (e.g. 46272), not the "YYYY-MM-DD"
+// string the form wrote — Excel coerces a date-looking string into a date cell on write. This turns
+// such a serial back into an ISO date; a value that is not a bare number is returned unchanged (so a
+// real "1992-05-14" string, or an empty cell, passes straight through). Excel's epoch is 1899-12-30
+// (which also absorbs the 1900 leap-year bug for any date at/after 1900-03-01 — every date we handle).
+function excelSerialToISO(value) {
+  const s = String(value == null ? '' : value).trim();
+  if (!/^\d{2,6}$/.test(s)) return s;
+  const ms = Date.UTC(1899, 11, 30) + Number(s) * 86400000;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+// "2026-09-07" -> "07.09.2026" (Norwegian display). Anything not ISO-shaped is returned unchanged.
+function formatDateNo(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || '').trim());
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : String(value || '').trim();
+}
+
 // Norwegian-aware slug for building UPNs/mail nicknames from names (Ole Bjørn -> olebjorn).
 // Explicit character map rather than Unicode-range regex/NFD tricks, which are easy to get
 // subtly wrong with invisible combining characters — this is easy to read and verify instead.
@@ -63,6 +81,8 @@ function isSameMonthDay(isoDateStr, { month, day }) {
 module.exports = {
   generateKandidatId,
   generateOffboardingId,
+  excelSerialToISO,
+  formatDateNo,
   generateTempPassword,
   slugifyName,
   todayInTimezone,

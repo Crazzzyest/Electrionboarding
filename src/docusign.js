@@ -7,6 +7,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const docusign = require('docusign-esign');
 const config = require('./config');
+const { formatDateNo } = require('./utils');
 
 function loadPrivateKey() {
   if (config.docusign.privateKeyBase64) {
@@ -73,13 +74,19 @@ async function ensure(candidate, ctx) {
     // placeholder is ever removed. locked so the signer can't edit the prefilled value. The [[...]]
     // text is white in the template, so the value renders cleanly on top of it.
     const A = config.docusign.anchors;
+    // Font matched to the contract's body (serif, 11pt, black) so the filled value reads as part of
+    // the document rather than a pasted-in box. anchorYOffset nudges the value onto the placeholder's
+    // baseline. The placeholder text under it is white, so only the value shows.
     const anchorTab = (anchorString, value) => ({
       anchorString,
       anchorUnits: 'pixels',
       anchorXOffset: '0',
-      anchorYOffset: '-2',
+      anchorYOffset: '-1',
       anchorIgnoreIfNotPresent: 'true',
       locked: 'true',
+      font: 'timesnewroman',
+      fontSize: 'size11',
+      fontColor: 'black',
       value: value || '',
     });
 
@@ -91,16 +98,16 @@ async function ensure(candidate, ctx) {
         roleName: config.docusign.signerRoleName,
         tabs: {
           // E-post is deliberately the @electi.no work address (microsoftUpn), NOT the private
-          // delivery address the request was sent to. Stillingsprosent is the number only — the
-          // template prints the literal "%" after [[STILLINGSDEL]]. Tiltredelsesdato comes from
-          // startdato, which is optional at registration (may be blank).
+          // delivery address the request was sent to. Stillingsprosent includes the "%" in the value
+          // (the doc no longer prints a literal "%", which used to leave a big gap). Tiltredelsesdato
+          // is shown in Norwegian dd.mm.yyyy; startdato is optional at registration (may be blank).
           textTabs: [
             anchorTab(A.navn, `${candidate.fornavn} ${candidate.etternavn}`),
             anchorTab(A.epost, candidate.microsoftUpn),
             anchorTab(A.telefon, candidate.mobil),
             anchorTab(A.stilling, candidate.stilling),
-            anchorTab(A.stillingsprosent, String(candidate.stillingsprosent)),
-            anchorTab(A.tiltredelsesdato, candidate.startdato || ''),
+            anchorTab(A.stillingsprosent, candidate.stillingsprosent ? `${candidate.stillingsprosent} %` : ''),
+            anchorTab(A.tiltredelsesdato, formatDateNo(candidate.startdato)),
             anchorTab(A.naermesteLeder, candidate.naermesteLeder),
           ],
         },

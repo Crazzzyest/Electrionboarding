@@ -15,7 +15,7 @@ const demoData = require('./demo-data');
 const {
   COL, NUM_COLS, STEG_STATUS, KONTRAKT_STATUS, OFF_COL, OFF_NUM_COLS,
 } = require('./columns');
-const { generateKandidatId, generateOffboardingId } = require('./utils');
+const { generateKandidatId, generateOffboardingId, excelSerialToISO } = require('./utils');
 
 const FIELD_TO_COL = {
   statusKontrakt: COL.STATUS_KONTRAKT,
@@ -46,7 +46,9 @@ function rowToCandidate(values, rowNumber) {
     kandidatId: get(COL.KANDIDAT_ID),
     fornavn: get(COL.FORNAVN),
     etternavn: get(COL.ETTERNAVN),
-    fodselsdato: get(COL.FODSELSDATO),
+    // Excel returns date cells as serial numbers — normalise back to ISO so the contract shows a
+    // real date and the birthday match works (see excelSerialToISO).
+    fodselsdato: excelSerialToISO(get(COL.FODSELSDATO)),
     privatEpost: get(COL.PRIVAT_EPOST),
     mobil: get(COL.MOBIL),
     adresse: get(COL.ADRESSE),
@@ -54,7 +56,7 @@ function rowToCandidate(values, rowNumber) {
     stillingsprosent: get(COL.STILLINGSPROSENT),
     avdeling: get(COL.AVDELING),
     naermesteLeder: get(COL.NAERMESTE_LEDER),
-    startdato: get(COL.STARTDATO),
+    startdato: excelSerialToISO(get(COL.STARTDATO)),
     registrertAv: get(COL.REGISTRERT_AV),
     registrertDato: get(COL.REGISTRERT_DATO),
     statusKontrakt: get(COL.STATUS_KONTRAKT) || KONTRAKT_STATUS.IKKE_SENDT,
