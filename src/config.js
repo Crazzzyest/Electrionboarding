@@ -56,6 +56,11 @@ const config = {
     // The Mail.Read idempotency check (searchMail) reads this same mailbox, so it must be readable
     // by the app too (app-only Mail.Read already covers all mailboxes). See docs/SETUP-CHECKLIST.md.
     sendAsMailbox: process.env.EMAIL_SEND_AS || 'edson.reistad@electi.no',
+    // Faste, org-brede "join"-lenker (ikke personlige/engangs): den ansatte fyller inn sin egen
+    // @electi.no-adresse på sidene, og Hyre/Airbnb sender så invitasjonen til den postkassen. Tas
+    // med i velkomstmailen. Env-overstyrbare i tilfelle Electi bytter dem.
+    hyreJoinUrl: process.env.HYRE_JOIN_URL || 'https://bedrift.hyre.no/electi-business-partner/join',
+    airbnbJoinUrl: process.env.AIRBNB_JOIN_URL || 'https://www.airbnb.no/w/electi-business-partner-as/J2Y5WXukbh9A',
   },
 
   microsoft: {

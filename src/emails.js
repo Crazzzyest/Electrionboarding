@@ -15,6 +15,15 @@ function buildWelcomeEmailHtml(candidate, tempPassword) {
       (du blir bedt om å bytte passord ved første innlogging)
     </p>
     <p>E-posten din finner du på <a href="https://outlook.office.com">https://outlook.office.com</a>. Merk: det kan ta noen minutter før innboksen din blir tilgjengelig etter at kontoen er opprettet.</p>
+    <h3 style="margin-top:20px;">Tjenester du skal koble deg til</h3>
+    <p>Bruk e-postadressen din <strong>${candidate.microsoftUpn}</strong> når du kobler deg til disse:</p>
+    <ul>
+      <li><strong>Hyre</strong> (bilutleie): <a href="${config.email.hyreJoinUrl}">${config.email.hyreJoinUrl}</a><br>
+        Skriv inn @electi.no-adressen din, så mottar du en invitasjon til Electis bedriftskonto.</li>
+      <li><strong>Airbnb for Work</strong> (reise): <a href="${config.email.airbnbJoinUrl}">${config.email.airbnbJoinUrl}</a><br>
+        Legg til @electi.no-adressen din for å koble deg til Electis medarbeiderportal.</li>
+    </ul>
+    <p>Da kan Electi bestille bil og reise på vegne av deg.</p>
     <p>Vi gleder oss til å ha deg med på laget!</p>
   `;
 }
