@@ -13,6 +13,9 @@ const rowsInProgress = new Set();
 
 function friendlyError(raw) {
   const m = String(raw || '');
+  if (/ErrorInvalidUser|(sendMail|\/messages).*: 404/i.test(m)) {
+    return 'Avsender-postboksen (EMAIL_SEND_AS) er ugyldig — sjekk at adressen finnes og at domenet er electi.no (ikke electri.no).';
+  }
   if (/Authorization_RequestDenied|Insufficient privileges|(^|\D)403(\D|$)/.test(m)) {
     return 'Venter på Microsoft-tillatelse fra Electis admin (se docs/MICROSOFT-ADMIN-SETUP.md).';
   }

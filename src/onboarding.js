@@ -70,6 +70,9 @@ const STEP_ADAPTERS = {
 // admin-granted Microsoft permission rather than actually broken.
 function friendlyError(raw) {
   const m = String(raw || '');
+  if (/ErrorInvalidUser|(sendMail|\/messages).*: 404/i.test(m)) {
+    return 'Avsender-postboksen (EMAIL_SEND_AS) er ugyldig — sjekk at adressen finnes og at domenet er electi.no (ikke electri.no).';
+  }
   if (/Mail\.Send|Mail\.Read|sendAsMailbox/i.test(m)) {
     return 'E-post ikke aktivert ennå — venter på Mail-tillatelse og avsender-postboks fra Electis admin.';
   }
