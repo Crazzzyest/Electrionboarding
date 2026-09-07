@@ -102,20 +102,20 @@ const config = {
     connectHmacKey: (process.env.DOCUSIGN_CONNECT_HMAC_KEY || '').trim(),
     templateId: 'c53d4f46-11ed-48ba-8800-053aa3afe989', // "Arbeidsavtale" template, rebuilt 2026-09-02
     signerRoleName: 'Arbeidstaker', // matches the rebuilt template's role name (was "Ansatt")
-    // Discovered 2026-09-02 by reading the rebuilt template's real tab definitions via the API. The
-    // template uses DocuSign's automatic field-recognition, so these are random internal labels, not
-    // the "[[STILLING]]" strings from the Word template. Navn auto-fills from the recipient name
-    // (FullName field, no tabLabel needed); everything else is a Text field the app fills below.
-    // CAUTION: these labels belong to THIS processed version of the template. If the document is ever
-    // re-uploaded/regenerated in DocuSign, they change and need re-discovery (run the discovery
-    // script in scratchpad; see docs/SETUP-CHECKLIST.md).
-    tabLabels: {
-      epost: 'atb.docusignFields.label-text 2wyx5n7797jmtkb4rkj',
-      telefon: 'atb.docusignFields.label-text ew53e0dgonmtkb63ts',
-      stilling: 'atb.docusignFields.label-text mzd2ecr1skbmtkb6jfl',
-      stillingsprosent: 'atb.docusignFields.label-text gb8jkpyohkmtkb6vsb',
-      tiltredelsesdato: 'atb.docusignFields.label-text 57byde06i6fmtkb77ck',
-      naermesteLeder: 'atb.docusignFields.label-text be441u2b9oomtkb7iun',
+    // ANKER-felter (byttet 2026-09-07). Tidligere brukte vi DocuSigns auto-gjenkjente felter, som
+    // fikk tilfeldige interne etiketter — de ble slettet hver gang kontraktdokumentet ble lastet opp
+    // på nytt (som da provisjonsvedlegget ble lagt til: alle felter forsvant, og de rå [[...]]-
+    // plassholderne ble stående). Nå plasserer appen feltene på selve [[...]]-tekstene ved utsending
+    // (anchorString i docusign.js). Det er immunt mot nye opplastinger så lenge disse literalstrengene
+    // står i dokumentet. Plassholderne er gjort hvite i Word-malen så de ikke synes bak verdien.
+    anchors: {
+      navn: '[[NAVN]]',
+      epost: '[[EPOST]]',
+      telefon: '[[TELEFON]]',
+      stilling: '[[STILLING]]',
+      stillingsprosent: '[[STILLINGSDEL]]',
+      tiltredelsesdato: '[[TILTREDELSESDATO]]',
+      naermesteLeder: '[[NAERMESTE_LEDER]]',
     },
   },
 

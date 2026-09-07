@@ -67,6 +67,22 @@ async function ensure(candidate, ctx) {
     apiClient.addDefaultHeader('Authorization', `Bearer ${auth.token}`);
     const envelopesApi = new docusign.EnvelopesApi(apiClient);
 
+    // Anchor-based text tabs: DocuSign resolves each field's position from the literal [[...]]
+    // string in the document at send time, so re-uploading/editing the template never breaks this
+    // again (unlike stored auto-recognised tabs). anchorIgnoreIfNotPresent avoids a hard error if a
+    // placeholder is ever removed. locked so the signer can't edit the prefilled value. The [[...]]
+    // text is white in the template, so the value renders cleanly on top of it.
+    const A = config.docusign.anchors;
+    const anchorTab = (anchorString, value) => ({
+      anchorString,
+      anchorUnits: 'pixels',
+      anchorXOffset: '0',
+      anchorYOffset: '-2',
+      anchorIgnoreIfNotPresent: 'true',
+      locked: 'true',
+      value: value || '',
+    });
+
     const envelopeDefinition = {
       templateId: config.docusign.templateId,
       templateRoles: [{
@@ -74,18 +90,18 @@ async function ensure(candidate, ctx) {
         name: `${candidate.fornavn} ${candidate.etternavn}`,
         roleName: config.docusign.signerRoleName,
         tabs: {
-          // Navn auto-fills from `name` on the templateRole (the FullName field), so it needs no tab.
-          // Everything else is a Text field the app fills here. E-post is deliberately the @electi.no
-          // work address (microsoftUpn), NOT the private delivery address the request was sent to.
-          // Stillingsprosent is the number only — the template prints the literal "%" after the field.
-          // Tiltredelsesdato comes from startdato, which is optional at registration (may be blank).
+          // E-post is deliberately the @electi.no work address (microsoftUpn), NOT the private
+          // delivery address the request was sent to. Stillingsprosent is the number only — the
+          // template prints the literal "%" after [[STILLINGSDEL]]. Tiltredelsesdato comes from
+          // startdato, which is optional at registration (may be blank).
           textTabs: [
-            { tabLabel: config.docusign.tabLabels.epost, value: candidate.microsoftUpn },
-            { tabLabel: config.docusign.tabLabels.telefon, value: candidate.mobil },
-            { tabLabel: config.docusign.tabLabels.stilling, value: candidate.stilling },
-            { tabLabel: config.docusign.tabLabels.stillingsprosent, value: String(candidate.stillingsprosent) },
-            { tabLabel: config.docusign.tabLabels.tiltredelsesdato, value: candidate.startdato || '' },
-            { tabLabel: config.docusign.tabLabels.naermesteLeder, value: candidate.naermesteLeder },
+            anchorTab(A.navn, `${candidate.fornavn} ${candidate.etternavn}`),
+            anchorTab(A.epost, candidate.microsoftUpn),
+            anchorTab(A.telefon, candidate.mobil),
+            anchorTab(A.stilling, candidate.stilling),
+            anchorTab(A.stillingsprosent, String(candidate.stillingsprosent)),
+            anchorTab(A.tiltredelsesdato, candidate.startdato || ''),
+            anchorTab(A.naermesteLeder, candidate.naermesteLeder),
           ],
         },
       }],
