@@ -108,11 +108,44 @@ async function ensure(candidate, ctx) {
       customFields: {
         textCustomFields: [{ name: 'kandidatId', value: ctx.kandidatId }],
       },
-      status: 'sent',
+      // Draft first: the commission-rate PDF is attached by the app (not stored in the template),
+      // so the template is never touched — and each signed envelope locks in that day's rate sheet.
+      status: 'created',
     };
 
     const result = await envelopesApi.createEnvelope(auth.accountId, { envelopeDefinition });
-    return { ok: true, externalId: result.envelopeId };
+    const envelopeId = result.envelopeId;
+
+    const apiBase = `${auth.accountBasePath}/v2.1/accounts/${auth.accountId}/envelopes/${envelopeId}`;
+    const authHeader = { Authorization: `Bearer ${auth.token}` };
+
+    // Attach the commission-rate PDF as document 2 (if configured and present on disk). Read as
+    // raw bytes; a missing file is not fatal — the contract still goes out without the attachment.
+    const { attachmentPath, attachmentName } = config.docusign;
+    if (attachmentPath && attachmentName && fs.existsSync(attachmentPath)) {
+      const res = await fetch(`${apiBase}/documents/2`, {
+        method: 'PUT',
+        headers: {
+          ...authHeader,
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `file; filename="${attachmentName}"; documentid=2`,
+        },
+        body: fs.readFileSync(attachmentPath),
+      });
+      if (!res.ok) throw new Error(`DocuSign legg-ved-dokument feilet: ${res.status} ${await res.text()}`);
+    } else if (attachmentPath) {
+      console.warn(`DocuSign-vedlegg ikke funnet på disk (${attachmentPath}) — kontrakten sendes uten det.`);
+    }
+
+    // Now send the (draft) envelope.
+    const send = await fetch(apiBase, {
+      method: 'PUT',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'sent' }),
+    });
+    if (!send.ok) throw new Error(`DocuSign send-konvolutt feilet: ${send.status} ${await send.text()}`);
+
+    return { ok: true, externalId: envelopeId };
   } catch (e) {
     const raw = e.message || String(e);
     const hint = raw.includes('consent_required')

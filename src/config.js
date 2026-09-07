@@ -117,6 +117,13 @@ const config = {
       tiltredelsesdato: '[[TILTREDELSESDATO]]',
       naermesteLeder: '[[NAERMESTE_LEDER]]',
     },
+    // Provisjonsvedlegget festes av APPEN ved hver utsending (ikke lagret i DocuSign-malen), så
+    // malen aldri må røres — og øyeblikksbildet av satsene låses inn i hver signerte kontrakt.
+    // Oppdatere satsene = bytt denne fila (eller sett DOCUSIGN_ATTACHMENT_PATH). Tom sti/attachmentName
+    // = ingen vedlegg. Navnet er slik det vises i konvolutten.
+    attachmentPath: process.env.DOCUSIGN_ATTACHMENT_PATH
+      || path.resolve(__dirname, '..', 'docs', 'Nye provisjoner 8.4.2026.pdf'),
+    attachmentName: process.env.DOCUSIGN_ATTACHMENT_NAME || 'Nye provisjoner 8.4.2026.pdf',
   },
 
   salesscreen: {
