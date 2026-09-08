@@ -37,6 +37,7 @@ const FIELD_TO_COL = {
   notater: COL.NOTATER,
   sisteFeilmelding: COL.SISTE_FEILMELDING,
   kontonummer: COL.KONTONUMMER,
+  signertKontraktUrl: COL.SIGNERT_KONTRAKT_URL,
 };
 
 function rowToCandidate(values, rowNumber) {
@@ -78,6 +79,7 @@ function rowToCandidate(values, rowNumber) {
     notater: get(COL.NOTATER),
     sisteFeilmelding: get(COL.SISTE_FEILMELDING),
     kontonummer: get(COL.KONTONUMMER),
+    signertKontraktUrl: get(COL.SIGNERT_KONTRAKT_URL),
   };
 }
 
@@ -147,6 +149,7 @@ async function createCandidate(fields) {
     notater: '',
     sisteFeilmelding: '',
     kontonummer: fields.kontonummer || '',
+    signertKontraktUrl: '',
   };
 
   if (config.demoMode) {

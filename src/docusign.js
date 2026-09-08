@@ -162,6 +162,18 @@ async function ensure(candidate, ctx) {
   }
 }
 
+// Downloads the fully signed, combined PDF (contract + attachment + DocuSign completion seal) for a
+// completed envelope. Used by the webhook to archive the signed contract to SharePoint.
+async function downloadCompletedPdf(envelopeId) {
+  const auth = await authenticate();
+  const res = await fetch(
+    `${auth.accountBasePath}/v2.1/accounts/${auth.accountId}/envelopes/${envelopeId}/documents/combined`,
+    { headers: { Authorization: `Bearer ${auth.token}` } },
+  );
+  if (!res.ok) throw new Error(`DocuSign hent signert PDF-feil: ${res.status} ${await res.text()}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 // DocuSign Connect signs the raw request body with HMAC-SHA256 using the configured key;
 // compares against the X-DocuSign-Signature-1 header. Skipped entirely in DEMO_MODE (see the
 // webhook route in index.js).
@@ -189,4 +201,4 @@ function parseWebhookEvent(body) {
   return { envelopeId, status };
 }
 
-module.exports = { ensure, verifyConnectSignature, parseWebhookEvent };
+module.exports = { ensure, verifyConnectSignature, parseWebhookEvent, downloadCompletedPdf };

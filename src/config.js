@@ -32,6 +32,12 @@ const config = {
     offboardingTable: 'Offboarding',
   },
 
+  // Hvor ferdig signerte kontrakter (PDF fra DocuSign) arkiveres i samme SharePoint-nettsted som
+  // Excel-arket. Webhooken laster opp hit ved "completed". Mappa opprettes automatisk om den mangler.
+  contracts: {
+    folder: process.env.CONTRACTS_FOLDER || '/Onboarding/Kontrakter',
+  },
+
   storage: {
     // Which storage backend to use when NOT in demo mode:
     //   'excel' — the production target: an Excel workbook in SharePoint/OneDrive via Graph

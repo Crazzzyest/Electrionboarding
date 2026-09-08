@@ -36,9 +36,11 @@ const COL = {
   // ville forskjøvet alle etterfølgende indekser og brutt det live Excel-arket. Kontonummer for
   // lønn — samles inn i skjemaet, brukes ikke av noe integrasjonssteg ennå.
   KONTONUMMER: 33,
+  // Lenke til det ferdig signerte PDF-et i SharePoint (lagres av webhooken ved "completed").
+  SIGNERT_KONTRAKT_URL: 34,
 };
 
-const NUM_COLS = 33;
+const NUM_COLS = 34;
 
 // Column headers, in order — written as row 1 when the sheet is first set up.
 const HEADERS = [
@@ -49,7 +51,7 @@ const HEADERS = [
   'Status Telenor', 'Telenor bestilling sendt dato',
   'Status SalesScreen', 'SalesScreen UserID', 'SalesScreen fullført dato',
   'Status Velkommen', 'Velkommen sendt dato',
-  'Siste bursdagsvarsel år', 'Notater', 'Siste feilmelding', 'Kontonummer',
+  'Siste bursdagsvarsel år', 'Notater', 'Siste feilmelding', 'Kontonummer', 'Signert kontrakt',
 ];
 
 const STEG_STATUS = {

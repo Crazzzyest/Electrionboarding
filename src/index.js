@@ -6,6 +6,7 @@ const storage = require('./storage');
 const onboarding = require('./onboarding');
 const offboarding = require('./offboarding');
 const docusign = require('./docusign');
+const contractArchive = require('./contract-archive');
 const birthday = require('./birthday');
 const { KONTRAKT_STATUS, LOGG_HANDLING, LOGG_KILDE } = require('./columns');
 
@@ -207,6 +208,22 @@ async function handleEnvelopeEvent(event) {
       kontraktSignertDato: new Date().toISOString(),
     });
     await storage.appendLog(candidate.kandidatId, 'kontrakt', LOGG_HANDLING.FULLFORT, 'Signert', LOGG_KILDE.WEBHOOK);
+
+    // Archive the signed PDF to SharePoint. Idempotent: skip if already stored (webhook retry).
+    if (!candidate.signertKontraktUrl) {
+      try {
+        const arch = await contractArchive.archiveSignedContract(candidate, event.envelopeId);
+        if (arch.webUrl) {
+          await storage.updateCandidateFields(candidate.row, { signertKontraktUrl: arch.webUrl });
+        }
+        await storage.appendLog(candidate.kandidatId, 'kontrakt', LOGG_HANDLING.FULLFORT,
+          arch.demoMode ? 'Signert kontrakt (demo, ikke arkivert)' : 'Signert kontrakt lagret i SharePoint', LOGG_KILDE.WEBHOOK);
+      } catch (e) {
+        console.error('Arkivering av signert kontrakt feilet:', e);
+        await storage.appendLog(candidate.kandidatId, 'kontrakt', LOGG_HANDLING.FEILET,
+          `Kunne ikke lagre signert kontrakt: ${e.message}`, LOGG_KILDE.WEBHOOK);
+      }
+    }
   } else if (event.status === 'declined' || event.status === 'voided') {
     await storage.updateCandidateFields(candidate.row, { statusKontrakt: KONTRAKT_STATUS.AVSLATT });
     await storage.appendLog(candidate.kandidatId, 'kontrakt', LOGG_HANDLING.FEILET, `Status: ${event.status}`, LOGG_KILDE.WEBHOOK);
