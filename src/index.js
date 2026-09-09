@@ -78,7 +78,8 @@ app.post('/api/candidates', express.json(), async (req, res) => {
     }
 
     // Duplicate guard: same private e-post, or same name + birthdate, already registered.
-    const existing = await storage.listCandidates();
+    // Skipped when ALLOW_DUPLICATES=true (testing). On in production.
+    const existing = config.allowDuplicates ? [] : await storage.listCandidates();
     const epost = String(req.body.privatEpost || '').trim().toLowerCase();
     const dupe = existing.find((c) => (
       (epost && String(c.privatEpost || '').trim().toLowerCase() === epost)

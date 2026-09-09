@@ -208,6 +208,10 @@ const config = {
   // Hvor drifts-varsler (fastlaaste/feilede steg) sendes. Faller tilbake paa managementEmail.
   alertEmail: (process.env.ALERT_EMAIL || '').trim(),
 
+  // Duplikat-vern ved registrering (samme e-post eller navn+foedselsdato). Settes ALLOW_DUPLICATES=true
+  // for aa skru det AV under testing, saa samme testperson kan registreres flere ganger. Paa i drift.
+  allowDuplicates: process.env.ALLOW_DUPLICATES === 'true',
+
   port: parseInt(process.env.PORT, 10) || 3000,
 };
 
