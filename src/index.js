@@ -309,6 +309,17 @@ app.post('/api/check-birthdays', async (req, res) => {
   }
 });
 
+// Sends a sample birthday notification to managementEmail on demand (UI button), to verify setup.
+app.post('/api/test-birthday', async (req, res) => {
+  try {
+    const result = await birthday.sendTestBirthday();
+    res.json({ success: true, ...result });
+  } catch (e) {
+    console.error('test-birthday error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ============================================================
 // STATIC FRONTEND
 // ============================================================

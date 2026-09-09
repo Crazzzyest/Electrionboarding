@@ -121,6 +121,14 @@
     <h2>Kandidater</h2>
     <div id="candidateList"><div class="empty">Laster…</div></div>
   </div>
+
+  <div class="card">
+    <h2>Verktøy</h2>
+    <div class="form-actions">
+      <button class="btn btn-outline btn-sm" id="testBirthdayBtn">Send test-bursdagsvarsel</button>
+      <span class="form-msg" id="testBirthdayMsg"></span>
+    </div>
+  </div>
   </div>
 
   <div id="view-offboarding" hidden>
@@ -519,6 +527,30 @@ function switchView(view) {
   else loadCandidates();
 }
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
+
+document.getElementById('testBirthdayBtn').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const msg = document.getElementById('testBirthdayMsg');
+  msg.textContent = ''; msg.className = 'form-msg';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/test-birthday', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      msg.textContent = data.demo
+        ? 'Demo-modus: ingen e-post sendt.'
+        : 'Test-bursdagsvarsel sendt til ' + data.to;
+      msg.classList.add('ok');
+    } else {
+      msg.textContent = data.error || 'Noe gikk galt.';
+      msg.classList.add('err');
+    }
+  } catch (err) {
+    msg.textContent = 'Noe gikk galt.'; msg.classList.add('err');
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 async function refresh() {
   if (currentView === 'offboarding') await loadOffboardings();

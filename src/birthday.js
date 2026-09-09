@@ -39,4 +39,24 @@ async function checkBirthdaysToday() {
   return { sent };
 }
 
-module.exports = { checkBirthdaysToday };
+// Sends a sample birthday notification to managementEmail regardless of whether anyone actually has
+// a birthday today — so the recipient/mail setup and the template can be verified on demand from the
+// UI. The real daily scan is checkBirthdaysToday(); this only exercises the notification itself.
+async function sendTestBirthday() {
+  const sample = { fornavn: 'Test', etternavn: 'Testesen', avdeling: 'Salg' };
+  if (config.demoMode) {
+    console.log('[DEMO] Test-bursdagsvarsel (ingen ekte e-post sendt)');
+    return { sent: 0, demo: true, to: config.email.managementEmail };
+  }
+  if (!config.email.managementEmail) {
+    throw new Error('managementEmail er ikke satt (sett MANAGEMENT_EMAIL) — ingen mottaker for bursdagsvarsel.');
+  }
+  await mail.sendEmail(
+    config.email.managementEmail,
+    'TEST — Bursdagsvarsel (Electi onboarding)',
+    `<p><em>Dette er en test av bursdagsvarselet.</em></p>${buildBirthdayEmailHtml(sample)}`,
+  );
+  return { sent: 1, to: config.email.managementEmail };
+}
+
+module.exports = { checkBirthdaysToday, sendTestBirthday };
