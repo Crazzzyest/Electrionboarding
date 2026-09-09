@@ -24,6 +24,9 @@ function buildWelcomeEmailHtml(candidate, tempPassword) {
         Legg til @electi.no-adressen din for å koble deg til Electis medarbeiderportal.</li>
     </ul>
     <p>Da kan Electi bestille bil og reise på vegne av deg.</p>
+    <p><strong>SalesScreen</strong> (salgsdashbord): kontoen din er opprettet med @electi.no-adressen.
+      Du får en egen e-post fra SalesScreen med lenke for å sette passord — følg den for å logge inn på
+      <a href="https://app.salesscreen.com">app.salesscreen.com</a>.</p>
     <p>Vi gleder oss til å ha deg med på laget!</p>
   `;
 }
