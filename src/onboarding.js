@@ -184,12 +184,30 @@ async function runOnboardingSteps(row, { trigger = LOGG_KILDE.MANUELL } = {}) {
   }
 }
 
-async function sendContract(row) {
+async function sendContract(row, { resend = false } = {}) {
   const candidate = await storage.getCandidate(row);
   if (!candidate) return { skipped: true, reason: 'Kandidat ikke funnet' };
 
-  if (candidate.docusignEnvelopeId) {
+  // Already-signed contracts are never resent — voiding a signed agreement is not something an
+  // accidental "resend" should do.
+  if (resend && candidate.statusKontrakt === KONTRAKT_STATUS.SIGNERT) {
+    return { skipped: true, reason: 'Kontrakt er allerede signert' };
+  }
+
+  if (candidate.docusignEnvelopeId && !resend) {
     return { skipped: true, ok: true, reason: 'Kontrakt allerede sendt' };
+  }
+
+  // Resend: void the previous (unsigned) envelope first so the new, corrected one is the only
+  // active agreement. A void failure is not fatal — log it and still send the new contract.
+  if (resend && candidate.docusignEnvelopeId) {
+    try {
+      await docusign.voidEnvelope(candidate.docusignEnvelopeId);
+      await storage.appendLog(candidate.kandidatId, 'kontrakt', LOGG_HANDLING.FULLFORT, 'Gammel kontrakt annullert', LOGG_KILDE.MANUELL);
+    } catch (e) {
+      console.error('Kunne ikke annullere gammel kontrakt:', e.message);
+    }
+    await storage.updateCandidateFields(row, { docusignEnvelopeId: '', kontraktSignertDato: '' });
   }
 
   await storage.appendLog(candidate.kandidatId, 'kontrakt', LOGG_HANDLING.FORSOKT, '', LOGG_KILDE.REGISTRERING);

@@ -58,6 +58,7 @@
   .detail-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 13px; }
   .detail-actions { display: flex; align-items: center; gap: 8px; }
   .force-label { font-size: 11px; color: #888; display: flex; align-items: center; gap: 4px; }
+  .edit-form { margin: 10px 0 4px; padding: 14px; background: #f7f9fb; border: 1px solid #e3e8ee; border-radius: 8px; }
 
   .log { margin-top: 12px; font-size: 12px; color: #666; max-height: 160px; overflow-y: auto; background: #fafafa; border-radius: 6px; padding: 8px 10px; }
   .log-entry { padding: 3px 0; border-bottom: 1px solid #eee; }
@@ -189,6 +190,11 @@ function badgeClass(status) {
   return 'badge-' + String(status || '').toLowerCase().replace(/ø/g, 'o').replace(/å/g, 'a').replace(/\s+/g, '-');
 }
 
+// Escape a value for safe use inside an HTML attribute (edit-form input values).
+function attr(v) {
+  return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
 function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -288,12 +294,35 @@ async function loadDetail(row) {
   }).join('');
 
   const contractActions = [];
-  if (c.statusKontrakt === 'Ikke sendt' || c.statusKontrakt === 'Feilet') {
-    contractActions.push(`<button class="btn btn-outline btn-sm resend-btn" data-row="${row}">Send kontrakt</button>`);
+  if (!contractSigned) {
+    contractActions.push(`<button class="btn btn-outline btn-sm edit-btn" data-row="${row}">Rediger</button>`);
+  }
+  if (['Ikke sendt', 'Feilet', 'Sendt', 'Avslått'].includes(c.statusKontrakt)) {
+    const label = c.docusignEnvelopeId ? 'Send kontrakt på nytt' : 'Send kontrakt';
+    contractActions.push(`<button class="btn btn-outline btn-sm resend-btn" data-row="${row}">${label}</button>`);
   }
   if (demoMode && !contractSigned) {
     contractActions.push(`<button class="btn btn-warn btn-sm simulate-btn" data-row="${row}">Simuler signering (demo)</button>`);
   }
+
+  const EDIT_FIELDS = [
+    ['fornavn', 'Fornavn', 'text'], ['etternavn', 'Etternavn', 'text'], ['fodselsdato', 'Fødselsdato', 'date'],
+    ['privatEpost', 'Privat e-post', 'email'], ['mobil', 'Mobil', 'text'], ['kontonummer', 'Kontonummer', 'text'],
+    ['adresse', 'Adresse', 'text'], ['stilling', 'Stilling', 'text'], ['stillingsprosent', 'Stillingsprosent', 'number'],
+    ['avdeling', 'Avdeling', 'text'], ['naermesteLeder', 'Nærmeste leder', 'text'], ['startdato', 'Startdato', 'date'],
+    ['registrertAv', 'Registrert av', 'text'],
+  ];
+  const editForm = `
+    <form class="edit-form" id="editForm-${row}" data-row="${row}" hidden>
+      <div class="form-grid">
+        ${EDIT_FIELDS.map(([n, l, t]) => `<div><label>${l}</label><input name="${n}" type="${t}" value="${attr(c[n])}"></div>`).join('')}
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-sm">Lagre endringer</button>
+        <button type="button" class="btn btn-outline btn-sm edit-cancel" data-row="${row}">Avbryt</button>
+        <span class="form-msg" id="editMsg-${row}"></span>
+      </div>
+    </form>`;
 
   const logHtml = (data.log || []).length
     ? data.log.map((e) => `<div class="log-entry">${fmtDate(e.tidspunkt)} — <strong>${e.steg}</strong> ${e.handling}${e.melding ? ' — ' + e.melding : ''} <em>(${e.kilde})</em></div>`).join('')
@@ -304,6 +333,7 @@ async function loadDetail(row) {
       <span>Kontrakt: <strong>${c.statusKontrakt}</strong> ${c.docusignEnvelopeId ? '(' + c.docusignEnvelopeId + ')' : ''}</span>
       <span class="detail-actions">${contractActions.join('')}</span>
     </div>
+    ${editForm}
     ${rows}
     <div class="detail-row"><button class="btn btn-outline btn-sm retryall-btn" data-row="${row}">Kjør alle ventende steg på nytt</button></div>
     ${c.sisteFeilmelding ? '<div class="form-msg err">Siste feil: ' + c.sisteFeilmelding + '</div>' : ''}
@@ -358,6 +388,33 @@ function wireActions() {
       await fetch('/api/demo/simulate-signed/' + row, { method: 'POST' });
       await loadDetail(row);
       await loadCandidates();
+    };
+  });
+  document.querySelectorAll('.edit-btn').forEach((btn) => {
+    btn.onclick = () => { const f = document.getElementById('editForm-' + btn.dataset.row); if (f) f.hidden = !f.hidden; };
+  });
+  document.querySelectorAll('.edit-cancel').forEach((btn) => {
+    btn.onclick = () => { const f = document.getElementById('editForm-' + btn.dataset.row); if (f) f.hidden = true; };
+  });
+  document.querySelectorAll('.edit-form').forEach((form) => {
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const row = form.dataset.row;
+      const msg = document.getElementById('editMsg-' + row);
+      msg.textContent = ''; msg.className = 'form-msg';
+      const fields = Object.fromEntries(new FormData(form).entries());
+      const res = await fetch('/api/candidates/' + row, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields),
+      });
+      const data = await res.json();
+      if (data.success) {
+        msg.textContent = 'Lagret.'; msg.classList.add('ok');
+        lastDetailHtml = '';
+        await loadDetail(row);
+        await loadCandidates();
+      } else {
+        msg.textContent = data.error || 'Noe gikk galt.'; msg.classList.add('err');
+      }
     };
   });
 }

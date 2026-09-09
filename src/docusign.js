@@ -174,6 +174,23 @@ async function downloadCompletedPdf(envelopeId) {
   return Buffer.from(await res.arrayBuffer());
 }
 
+// Voids an envelope (e.g. when a candidate's data was corrected and a fresh contract is sent). A
+// completed (already signed) envelope can't be voided — DocuSign returns an error, which the caller
+// surfaces. No-op in demo mode.
+async function voidEnvelope(envelopeId, reason = 'Erstattet av korrigert kontrakt') {
+  if (config.demoMode || !envelopeId) return;
+  const auth = await authenticate();
+  const res = await fetch(
+    `${auth.accountBasePath}/v2.1/accounts/${auth.accountId}/envelopes/${envelopeId}`,
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'voided', voidedReason: reason }),
+    },
+  );
+  if (!res.ok) throw new Error(`DocuSign void-feil: ${res.status} ${await res.text()}`);
+}
+
 // DocuSign Connect signs the raw request body with HMAC-SHA256 using the configured key;
 // compares against the X-DocuSign-Signature-1 header. Skipped entirely in DEMO_MODE (see the
 // webhook route in index.js).
@@ -201,4 +218,4 @@ function parseWebhookEvent(body) {
   return { envelopeId, status };
 }
 
-module.exports = { ensure, verifyConnectSignature, parseWebhookEvent, downloadCompletedPdf };
+module.exports = { ensure, verifyConnectSignature, parseWebhookEvent, downloadCompletedPdf, voidEnvelope };

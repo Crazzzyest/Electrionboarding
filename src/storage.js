@@ -18,6 +18,19 @@ const {
 const { generateKandidatId, generateOffboardingId, excelSerialToISO } = require('./utils');
 
 const FIELD_TO_COL = {
+  // Editable candidate fields (used by the "rediger kandidat" flow).
+  fornavn: COL.FORNAVN,
+  etternavn: COL.ETTERNAVN,
+  fodselsdato: COL.FODSELSDATO,
+  privatEpost: COL.PRIVAT_EPOST,
+  mobil: COL.MOBIL,
+  adresse: COL.ADRESSE,
+  stilling: COL.STILLING,
+  stillingsprosent: COL.STILLINGSPROSENT,
+  avdeling: COL.AVDELING,
+  naermesteLeder: COL.NAERMESTE_LEDER,
+  startdato: COL.STARTDATO,
+  registrertAv: COL.REGISTRERT_AV,
   statusKontrakt: COL.STATUS_KONTRAKT,
   docusignEnvelopeId: COL.DOCUSIGN_ENVELOPE_ID,
   kontraktSendtDato: COL.KONTRAKT_SENDT_DATO,

@@ -107,9 +107,48 @@ app.post('/api/candidates/:row/retry', express.json(), async (req, res) => {
   }
 });
 
+// Edit a candidate's data. Only whitelisted fields are writable. If the Microsoft account hasn't
+// been created yet, the @electi.no address is recomputed from the (possibly changed) name so the
+// contract and later provisioning stay consistent; once the account exists, the UPN is left alone.
+const EDITABLE_FIELDS = [
+  'fornavn', 'etternavn', 'fodselsdato', 'privatEpost', 'mobil', 'kontonummer', 'adresse',
+  'stilling', 'stillingsprosent', 'avdeling', 'naermesteLeder', 'startdato', 'registrertAv',
+];
+
+app.put('/api/candidates/:row', express.json(), async (req, res) => {
+  try {
+    const candidate = await storage.getCandidate(req.params.row);
+    if (!candidate) return res.status(404).json({ success: false, error: 'Ikke funnet' });
+
+    const updates = {};
+    for (const f of EDITABLE_FIELDS) {
+      if (req.body[f] !== undefined) updates[f] = req.body[f];
+    }
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ success: false, error: 'Ingen felter å oppdatere' });
+    }
+
+    // Recompute the work address from the new name only while the account doesn't exist yet.
+    const microsoft = require('./microsoft');
+    if (candidate.statusMicrosoft365 !== 'OK') {
+      const merged = { ...candidate, ...updates };
+      updates.microsoftUpn = microsoft.buildUpn(merged);
+    }
+
+    await storage.updateCandidateFields(candidate.row, updates);
+    await storage.appendLog(candidate.kandidatId, 'registrering', LOGG_HANDLING.FULLFORT, 'Kandidat redigert', LOGG_KILDE.MANUELL);
+    const updated = await storage.getCandidate(candidate.row);
+    res.json({ success: true, candidate: updated });
+  } catch (e) {
+    console.error('edit candidate error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 app.post('/api/candidates/:row/resend-contract', async (req, res) => {
   try {
-    const result = await onboarding.sendContract(req.params.row);
+    // Resend: void any previous (unsigned) envelope and send a fresh contract with current data.
+    const result = await onboarding.sendContract(req.params.row, { resend: true });
     res.json({ success: true, result });
   } catch (e) {
     console.error('resend-contract error:', e);
