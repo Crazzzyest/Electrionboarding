@@ -9,13 +9,18 @@
 const config = require('./config');
 
 async function createOrUpdateUser(candidate) {
+  // Use the @electi.no WORK address as the SalesScreen id/login — SalesScreen is a work tool and the
+  // employee signs in with their work identity (same as Hyre/Airbnb and the rest of onboarding). The
+  // UPN is decided at registration, so it's available even before the mailbox exists. Falls back to
+  // the private address only if a UPN is somehow missing.
+  const loginEmail = candidate.microsoftUpn || candidate.privatEpost;
   const url = `${config.salesscreen.baseUrl}${config.salesscreen.createUserEndpoint}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { apiKey: config.salesscreen.apiKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      userId: candidate.privatEpost, // SalesScreen's recommended stable ID is the user's email
-      email: candidate.privatEpost,
+      userId: loginEmail,
+      email: loginEmail,
       firstname: candidate.fornavn,
       lastname: candidate.etternavn,
       team: config.salesscreen.team,
@@ -26,8 +31,9 @@ async function createOrUpdateUser(candidate) {
 }
 
 async function ensure(candidate, ctx) {
+  const loginEmail = candidate.microsoftUpn || candidate.privatEpost;
   if (config.demoMode) {
-    return { ok: true, externalId: candidate.privatEpost, demoMode: true };
+    return { ok: true, externalId: loginEmail, demoMode: true };
   }
 
   if (!config.salesscreen.apiKey) {
@@ -40,7 +46,7 @@ async function ensure(candidate, ctx) {
 
   try {
     await createOrUpdateUser(candidate);
-    return { ok: true, externalId: candidate.privatEpost };
+    return { ok: true, externalId: loginEmail };
   } catch (e) {
     return { ok: false, error: e.message, retryable: true };
   }
