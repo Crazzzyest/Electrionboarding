@@ -174,6 +174,20 @@ async function downloadCompletedPdf(envelopeId) {
   return Buffer.from(await res.arrayBuffer());
 }
 
+// Returns an envelope's current status ('sent'/'delivered'/'completed'/'declined'/'voided') — used
+// by the reconciliation job to catch signings whose webhook was missed (server down, etc.).
+async function getEnvelopeStatus(envelopeId) {
+  if (config.demoMode || !envelopeId) return null;
+  const auth = await authenticate();
+  const res = await fetch(
+    `${auth.accountBasePath}/v2.1/accounts/${auth.accountId}/envelopes/${envelopeId}`,
+    { headers: { Authorization: `Bearer ${auth.token}` } },
+  );
+  if (!res.ok) throw new Error(`DocuSign hent envelope-status-feil: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return String(data.status || '').toLowerCase();
+}
+
 // Voids an envelope (e.g. when a candidate's data was corrected and a fresh contract is sent). A
 // completed (already signed) envelope can't be voided — DocuSign returns an error, which the caller
 // surfaces. No-op in demo mode.
@@ -218,4 +232,6 @@ function parseWebhookEvent(body) {
   return { envelopeId, status };
 }
 
-module.exports = { ensure, verifyConnectSignature, parseWebhookEvent, downloadCompletedPdf, voidEnvelope };
+module.exports = {
+  ensure, verifyConnectSignature, parseWebhookEvent, downloadCompletedPdf, voidEnvelope, getEnvelopeStatus,
+};

@@ -197,6 +197,17 @@ const config = {
     telenorCc: (process.env.OFFBOARDING_TELENOR_CC || '').split(',').map((s) => s.trim()).filter(Boolean),
   },
 
+  // Enkel tilgangskontroll (Basic Auth) foran UI-et og API-et. Settes med APP_PASSWORD (og evt.
+  // APP_USERNAME) i Sliplane. Uten APP_PASSWORD er appen AAPEN — det logges tydelig ved oppstart.
+  // Webhooken (/webhooks/docusign) og /health er alltid unntatt (DocuSign/overvaaking maa naa dem).
+  auth: {
+    username: process.env.APP_USERNAME || 'electi',
+    password: (process.env.APP_PASSWORD || '').trim(),
+  },
+
+  // Hvor drifts-varsler (fastlaaste/feilede steg) sendes. Faller tilbake paa managementEmail.
+  alertEmail: (process.env.ALERT_EMAIL || '').trim(),
+
   port: parseInt(process.env.PORT, 10) || 3000,
 };
 
