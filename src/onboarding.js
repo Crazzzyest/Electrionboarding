@@ -225,4 +225,4 @@ async function sendContract(row) {
   return result;
 }
 
-module.exports = { runStep, runOnboardingSteps, sendContract };
+module.exports = { runStep, runOnboardingSteps, sendContract, friendlyError };

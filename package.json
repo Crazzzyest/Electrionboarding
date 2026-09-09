@@ -4,7 +4,8 @@
   "description": "Electi automatisert onboarding — fra godkjent kandidat til opprettet bruker og sendte bestillinger",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "node --test"
   },
   "type": "commonjs",
   "license": "UNLICENSED",

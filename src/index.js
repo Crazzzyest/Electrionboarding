@@ -236,9 +236,13 @@ app.post('/webhooks/docusign',
   express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }),
   async (req, res) => {
     // DOCUSIGN_CONNECT_SKIP_HMAC=true bypasses signature verification — a TEST-ONLY escape hatch
-    // for when the shared HMAC secret can't be confirmed (e.g. during first setup). Leaves the
-    // endpoint unauthenticated, so turn it off again for real use.
-    const skipHmac = process.env.DOCUSIGN_CONNECT_SKIP_HMAC === 'true';
+    // for when the shared HMAC secret can't be confirmed (e.g. during first setup). It is IGNORED in
+    // production (docusign.env === 'production'): prod always verifies the signature even if the flag
+    // is accidentally left on, so the webhook can never run unauthenticated against real data.
+    const skipHmac = process.env.DOCUSIGN_CONNECT_SKIP_HMAC === 'true' && config.docusign.env !== 'production';
+    if (process.env.DOCUSIGN_CONNECT_SKIP_HMAC === 'true' && config.docusign.env === 'production') {
+      console.warn('DOCUSIGN_CONNECT_SKIP_HMAC=true ignoreres i produksjon — signatur verifiseres alltid.');
+    }
     if (skipHmac) {
       console.warn('DOCUSIGN_CONNECT_SKIP_HMAC=true — webhook-signatur verifiseres IKKE (kun for test).');
     } else if (!config.demoMode) {

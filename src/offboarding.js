@@ -80,9 +80,15 @@ async function offboardSalesscreen(o) {
   try {
     await mail.sendEmail(
       to,
-      `Deaktiver i SalesScreen: ${o.navn}`,
-      `<p>${o.navn} (${o.microsoftUpn || 'ukjent e-post'}) slutter ${o.sluttdato || '(dato ikke oppgitt)'}.</p>
-       <p>SalesScreen-API-et støtter ikke deaktivering, så brukeren må deaktiveres manuelt i SalesScreen.</p>`,
+      `Handling kreves: deaktiver ${o.navn} i SalesScreen`,
+      `<p>Følgende ansatt slutter og skal deaktiveres i <strong>SalesScreen</strong>:</p>
+       <p>
+         <strong>Navn:</strong> ${o.navn}<br>
+         <strong>SalesScreen-bruker (e-post):</strong> ${o.privatEpost || o.microsoftUpn || 'ukjent'}<br>
+         <strong>Sluttdato:</strong> ${o.sluttdato || '(ikke oppgitt)'}
+       </p>
+       <p>Slik gjør du det: logg inn på SalesScreen → <em>Settings → Users</em> → søk opp brukeren → deaktiver/fjern.</p>
+       <p><small>SalesScreens API har ingen deaktiverings-funksjon (verifisert 2026-09-09), så dette steget må gjøres manuelt.</small></p>`,
     );
     return { ok: true };
   } catch (e) {
