@@ -84,10 +84,11 @@ async function offboardSalesscreen(o) {
       `<p>Følgende ansatt slutter og skal deaktiveres i <strong>SalesScreen</strong>:</p>
        <p>
          <strong>Navn:</strong> ${o.navn}<br>
-         <strong>SalesScreen-bruker (e-post):</strong> ${o.privatEpost || o.microsoftUpn || 'ukjent'}<br>
-         <strong>Sluttdato:</strong> ${o.sluttdato || '(ikke oppgitt)'}
+         <strong>SalesScreen-bruker (e-post):</strong> ${o.microsoftUpn || o.privatEpost || 'ukjent'}<br>
+         <strong>Sluttdato:</strong> ${o.sluttdato || '(ikke oppgitt)'}<br>
+         <strong>Har krav på provisjon:</strong> ${o.harProvisjon || 'Nei'}${o.harProvisjon === 'Ja' ? ' (har solgt noe — provisjonsoppgjør må behandles)' : ''}
        </p>
-       <p>Slik gjør du det: logg inn på SalesScreen → <em>Settings → Users</em> → søk opp brukeren → deaktiver/fjern.</p>
+       <p>Slik gjør du det: logg inn på SalesScreen → <em>Manage → Users</em> → søk opp brukeren → deaktiver/fjern.</p>
        <p><small>SalesScreens API har ingen deaktiverings-funksjon (verifisert 2026-09-09), så dette steget må gjøres manuelt.</small></p>`,
     );
     return { ok: true };
