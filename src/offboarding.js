@@ -7,6 +7,7 @@ const config = require('./config');
 const storage = require('./storage');
 const microsoft = require('./microsoft');
 const mail = require('./graph-mail');
+const { formatDateNo } = require('./utils');
 const { STEG_STATUS, LOGG_HANDLING, LOGG_KILDE } = require('./columns');
 
 const rowsInProgress = new Set();
@@ -47,7 +48,7 @@ function offboardTelenorHtml(o) {
     <p>
       ${o.navn}<br>
       ${o.microsoftUpn || ''}<br>
-      Sluttdato: ${o.sluttdato || 'ikke oppgitt'}
+      Sluttdato: ${formatDateNo(o.sluttdato) || 'ikke oppgitt'}
     </p>
     <p>Mvh<br>${o.registrertAv || 'Electi'}</p>
   `;
@@ -85,7 +86,7 @@ async function offboardSalesscreen(o) {
        <p>
          <strong>Navn:</strong> ${o.navn}<br>
          <strong>SalesScreen-bruker (e-post):</strong> ${o.microsoftUpn || o.privatEpost || 'ukjent'}<br>
-         <strong>Sluttdato:</strong> ${o.sluttdato || '(ikke oppgitt)'}<br>
+         <strong>Sluttdato:</strong> ${formatDateNo(o.sluttdato) || '(ikke oppgitt)'}<br>
          <strong>Har krav på provisjon:</strong> ${o.harProvisjon || 'Nei'}${o.harProvisjon === 'Ja' ? ' (har solgt noe — provisjonsoppgjør må behandles)' : ''}
        </p>
        <p>Slik gjør du det: logg inn på SalesScreen → <em>Manage → Users</em> → søk opp brukeren → deaktiver/fjern.</p>
@@ -107,7 +108,7 @@ async function offboardProvisjon(o) {
     await mail.sendEmail(
       to,
       `Provisjonskrav ved avslutning: ${o.navn}`,
-      `<p>${o.navn} slutter ${o.sluttdato || '(dato ikke oppgitt)'} og har krav på provisjon.</p>
+      `<p>${o.navn} slutter ${formatDateNo(o.sluttdato) || '(dato ikke oppgitt)'} og har krav på provisjon.</p>
        <p>Provisjonspapirene må behandles manuelt.</p>`,
     );
     return { ok: true };

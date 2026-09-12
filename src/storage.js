@@ -265,7 +265,8 @@ function rowToOffboarding(values, rowNumber) {
     offboardingId: get(OFF_COL.OFFBOARDING_ID),
     navn: get(OFF_COL.NAVN),
     microsoftUpn: get(OFF_COL.MICROSOFT_UPN),
-    sluttdato: get(OFF_COL.SLUTTDATO),
+    // Excel returns date cells as serial numbers — normalise back to ISO (samme som for kandidater).
+    sluttdato: excelSerialToISO(get(OFF_COL.SLUTTDATO)),
     harProvisjon: get(OFF_COL.HAR_PROVISJON),
     registrertAv: get(OFF_COL.REGISTRERT_AV),
     registrertDato: get(OFF_COL.REGISTRERT_DATO),
