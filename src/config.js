@@ -67,6 +67,9 @@ const config = {
     // med i velkomstmailen. Env-overstyrbare i tilfelle Electi bytter dem.
     hyreJoinUrl: process.env.HYRE_JOIN_URL || 'https://bedrift.hyre.no/electi-business-partner/join',
     airbnbJoinUrl: process.env.AIRBNB_JOIN_URL || 'https://www.airbnb.no/w/electi-business-partner-as/J2Y5WXukbh9A',
+    // Brønnøysundregistrene: den nyansatte logger inn og fullfører en bekreftelse (bl.a. at de ikke
+    // er under konkurskarantene). Env-overstyrbar i tilfelle lenken endres.
+    brregConfirmUrl: process.env.BRREG_CONFIRM_URL || 'https://person.brreg.no/nb/minside/forsikringsbekreftelse',
   },
 
   microsoft: {
