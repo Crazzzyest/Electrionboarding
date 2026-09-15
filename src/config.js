@@ -211,6 +211,11 @@ const config = {
   // Hvor drifts-varsler (fastlaaste/feilede steg) sendes. Faller tilbake paa managementEmail.
   alertEmail: (process.env.ALERT_EMAIL || '').trim(),
 
+  // Avdeling settes automatisk til denne (skjemaet har ikke lenger et Avdeling/Team-felt, siden alle
+  // nyansatte er selgere -> "Salg"-gruppen). Styrer Microsoft-gruppe-tildelingen (groupIdsByAvdeling).
+  // Legg tilbake feltet i skjemaet og utvid groupIdsByAvdeling hvis flere avdelinger kommer.
+  defaultAvdeling: process.env.DEFAULT_AVDELING || 'Salg',
+
   // Duplikat-vern ved registrering (samme e-post eller navn+foedselsdato). Settes ALLOW_DUPLICATES=true
   // for aa skru det AV under testing, saa samme testperson kan registreres flere ganger. Paa i drift.
   allowDuplicates: process.env.ALLOW_DUPLICATES === 'true',

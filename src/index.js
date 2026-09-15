@@ -62,7 +62,7 @@ app.get('/api/candidates/:row', async (req, res) => {
 
 const REQUIRED_FIELDS = [
   'fornavn', 'etternavn', 'fodselsdato', 'privatEpost', 'mobil', 'kontonummer',
-  'stilling', 'stillingsprosent', 'avdeling', 'naermesteLeder', 'registrertAv',
+  'stilling', 'stillingsprosent', 'naermesteLeder', 'registrertAv',
 ];
 
 app.post('/api/candidates', express.json(), async (req, res) => {
@@ -92,10 +92,12 @@ app.post('/api/candidates', express.json(), async (req, res) => {
     }
 
     // Decide the @electi.no address up front — the employment contract states it, so it has to
-    // exist before the envelope is sent, not after the Microsoft account is created.
+    // exist before the envelope is sent, not after the Microsoft account is created. Avdeling is no
+    // longer a form field; default it (drives the Microsoft group membership).
     const microsoft = require('./microsoft');
     const candidate = await storage.createCandidate({
       ...req.body,
+      avdeling: req.body.avdeling || config.defaultAvdeling,
       microsoftUpn: microsoft.buildUpn(req.body),
     });
     await storage.appendLog(candidate.kandidatId, 'registrering', LOGG_HANDLING.FULLFORT, 'Kandidat registrert', LOGG_KILDE.REGISTRERING);

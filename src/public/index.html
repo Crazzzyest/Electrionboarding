@@ -106,7 +106,6 @@
         <div><label>Adresse (valgfritt)</label><input name="adresse"></div>
         <div><label>Stilling</label><input name="stilling" required></div>
         <div><label>Stillingsprosent</label><input name="stillingsprosent" type="number" min="1" max="100" placeholder="100" required></div>
-        <div><label>Avdeling/Team</label><input name="avdeling" required></div>
         <div><label>Nærmeste leder (navn og tittel)</label><input name="naermesteLeder" placeholder="F.eks. Magnus Buran, prosjektleder" required></div>
         <div><label>Startdato (valgfritt)</label><input name="startdato" type="date"></div>
         <div><label>Registrert av (deg)</label><input name="registrertAv" required></div>
@@ -309,7 +308,7 @@ async function loadDetail(row) {
     ['fornavn', 'Fornavn', 'text'], ['etternavn', 'Etternavn', 'text'], ['fodselsdato', 'Fødselsdato', 'date'],
     ['privatEpost', 'Privat e-post', 'email'], ['mobil', 'Mobil', 'text'], ['kontonummer', 'Kontonummer', 'text'],
     ['adresse', 'Adresse', 'text'], ['stilling', 'Stilling', 'text'], ['stillingsprosent', 'Stillingsprosent', 'number'],
-    ['avdeling', 'Avdeling', 'text'], ['naermesteLeder', 'Nærmeste leder', 'text'], ['startdato', 'Startdato', 'date'],
+    ['naermesteLeder', 'Nærmeste leder', 'text'], ['startdato', 'Startdato', 'date'],
     ['registrertAv', 'Registrert av', 'text'],
   ];
   const editForm = `
