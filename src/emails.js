@@ -27,9 +27,9 @@ function buildWelcomeEmailHtml(candidate, tempPassword) {
     <p><strong>Bekreftelse hos Brønnøysundregistrene:</strong> logg inn og fullfør bekreftelsen her:
       <a href="${config.email.brregConfirmUrl}">${config.email.brregConfirmUrl}</a>
       (bekrefter blant annet at du ikke er under konkurskarantene).</p>
-    <p><strong>SalesScreen</strong> (salgsdashbord): kontoen din er opprettet med @electi.no-adressen.
-      Du får en egen e-post fra SalesScreen med lenke for å sette passord — følg den for å logge inn på
-      <a href="https://app.salesscreen.com">app.salesscreen.com</a>.</p>
+    <p><strong>SalesScreen</strong> (salgsdashbord): logg inn på
+      <a href="https://app.salesscreen.com">app.salesscreen.com</a> med «Sign in with Microsoft» og
+      @electi.no-kontoen din.</p>
     <p>Vi gleder oss til å ha deg med på laget!</p>
   `;
 }
