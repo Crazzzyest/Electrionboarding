@@ -80,7 +80,12 @@ async function resetTempPassword(userId) {
 }
 
 async function ensureGroups(userId, avdeling) {
-  const groupIds = config.microsoft.groupIdsByAvdeling[avdeling] || [];
+  // Match the "Avdeling/Team" value case-insensitively and trimmed, so "Salg", "salg" and " SALG "
+  // all map to the same configured group — the exact-case match was an easy footgun in the form.
+  const map = config.microsoft.groupIdsByAvdeling;
+  const norm = String(avdeling || '').trim().toLowerCase();
+  const key = Object.keys(map).find((k) => k.trim().toLowerCase() === norm);
+  const groupIds = (key && map[key]) || [];
   if (!groupIds.length) {
     return { added: [], note: `Ingen grupper konfigurert for avdeling "${avdeling}"` };
   }
