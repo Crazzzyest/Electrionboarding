@@ -109,7 +109,9 @@ const config = {
     // Trimmed: a trailing newline/space from pasting the key into the host's env is the most
     // common cause of a Connect HMAC mismatch (401 on every webhook), and it is invisible.
     connectHmacKey: (process.env.DOCUSIGN_CONNECT_HMAC_KEY || '').trim(),
-    templateId: 'c53d4f46-11ed-48ba-8800-053aa3afe989', // "Arbeidsavtale" template, rebuilt 2026-09-02
+    // Templates live per DocuSign account, so the ID differs between demo/production and between
+    // accounts: set DOCUSIGN_TEMPLATE_ID on the host. The fallback is the original demo-account template.
+    templateId: process.env.DOCUSIGN_TEMPLATE_ID || 'c53d4f46-11ed-48ba-8800-053aa3afe989', // "Arbeidsavtale", rebuilt 2026-09-02
     signerRoleName: 'Arbeidstaker', // matches the rebuilt template's role name (was "Ansatt")
     // ANKER-felter (byttet 2026-09-07). Tidligere brukte vi DocuSigns auto-gjenkjente felter, som
     // fikk tilfeldige interne etiketter — de ble slettet hver gang kontraktdokumentet ble lastet opp
