@@ -1,6 +1,8 @@
 // Format validation for candidate data — runs on both POST (new) and PUT (edit). Presence of
 // required fields is checked separately in index.js; these only validate FORMAT, and only when a
 // value is actually provided, so partial edits validate just the fields being changed.
+const { slugifyName } = require('./utils');
+
 function digitsOnly(s) {
   return String(s == null ? '' : s).replace(/\D/g, '');
 }
@@ -8,6 +10,12 @@ function digitsOnly(s) {
 function validateCandidate(body) {
   const errors = [];
   const has = (k) => body[k] !== undefined && body[k] !== null && String(body[k]).trim() !== '';
+
+  // The @electi.no address is built from the name, so each name part must contain at least one
+  // letter or digit that survives slugifying (a name of only symbols would give ".@electi.no").
+  for (const [k, label] of [['fornavn', 'Fornavn'], ['etternavn', 'Etternavn']]) {
+    if (has(k) && !slugifyName(body[k])) errors.push(`${label} må inneholde bokstaver.`);
+  }
 
   if (has('privatEpost') && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(body.privatEpost).trim())) {
     errors.push('Ugyldig privat e-post.');

@@ -34,10 +34,10 @@ test('slugifyName transliterates Norwegian characters and strips separators', ()
   assert.strictEqual(slugifyName('Anne-Kari'), 'annekari');
 });
 
-test('generateTempPassword is 12 chars with mixed character classes', () => {
+test('generateTempPassword is 14 chars with mixed character classes', () => {
   for (let i = 0; i < 20; i += 1) {
     const p = generateTempPassword();
-    assert.strictEqual(p.length, 12);
+    assert.strictEqual(p.length, 14);
     assert.match(p, /[A-Z]/);
     assert.match(p, /[a-z]/);
     assert.match(p, /[0-9]/);

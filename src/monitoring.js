@@ -5,6 +5,7 @@ const config = require('./config');
 const mail = require('./graph-mail');
 const storage = require('./storage');
 const { STEG_STATUS, KONTRAKT_STATUS } = require('./columns');
+const { escapeHtml: esc } = require('./utils');
 
 const STEP_FIELDS = [
   ['statusMicrosoft365', 'Microsoft365'],
@@ -53,8 +54,8 @@ async function checkAlerts() {
     const bits = [];
     if (failedSteps.length) bits.push(`feilet: ${failedSteps.join(', ')}`);
     if (staleUnsigned) bits.push(`kontrakt usignert i &gt; ${UNSIGNED_STALE_DAYS} dager`);
-    const feil = c.sisteFeilmelding ? ` — <em>${c.sisteFeilmelding}</em>` : '';
-    return `<li><strong>${c.fornavn} ${c.etternavn}</strong> (${c.kandidatId}): ${bits.join('; ')}${feil}</li>`;
+    const feil = c.sisteFeilmelding ? ` — <em>${esc(c.sisteFeilmelding)}</em>` : '';
+    return `<li><strong>${esc(c.fornavn)} ${esc(c.etternavn)}</strong> (${esc(c.kandidatId)}): ${bits.join('; ')}${feil}</li>`;
   }).join('');
 
   await mail.sendEmail(

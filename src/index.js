@@ -92,13 +92,17 @@ app.post('/api/candidates', express.json(), async (req, res) => {
     }
 
     // Decide the @electi.no address up front — the employment contract states it, so it has to
-    // exist before the envelope is sent, not after the Microsoft account is created. Avdeling is no
-    // longer a form field; default it (drives the Microsoft group membership).
+    // exist before the envelope is sent, not after the Microsoft account is created. allocateUpn
+    // picks the first address that neither another candidate nor an existing Microsoft account
+    // holds (ola.nordmann, ola.nordmann2, ...), so a namesake never lands on a colleague's account.
+    // Avdeling is no longer a form field; default it (drives the Microsoft group membership).
     const microsoft = require('./microsoft');
+    const all = config.allowDuplicates ? await storage.listCandidates() : existing;
+    const microsoftUpn = await microsoft.allocateUpn(req.body, all.map((c) => c.microsoftUpn));
     const candidate = await storage.createCandidate({
       ...req.body,
       avdeling: req.body.avdeling || config.defaultAvdeling,
-      microsoftUpn: microsoft.buildUpn(req.body),
+      microsoftUpn,
     });
     await storage.appendLog(candidate.kandidatId, 'registrering', LOGG_HANDLING.FULLFORT, 'Kandidat registrert', LOGG_KILDE.REGISTRERING);
 
@@ -163,11 +167,14 @@ app.put('/api/candidates/:row', express.json(), async (req, res) => {
       return res.status(400).json({ success: false, error: formatErrors.join(' ') });
     }
 
-    // Recompute the work address from the new name only while the account doesn't exist yet.
+    // Re-allocate the work address when the name changed, only while the account doesn't exist
+    // yet. This is also the way out of a "address belongs to another account" failure.
     const microsoft = require('./microsoft');
-    if (candidate.statusMicrosoft365 !== 'OK') {
+    const nameChanged = ['fornavn', 'etternavn'].some((f) => updates[f] !== undefined && updates[f] !== candidate[f]);
+    if (nameChanged && candidate.statusMicrosoft365 !== 'OK') {
       const merged = { ...candidate, ...updates };
-      updates.microsoftUpn = microsoft.buildUpn(merged);
+      const others = (await storage.listCandidates()).filter((c) => c.row !== candidate.row);
+      updates.microsoftUpn = await microsoft.allocateUpn(merged, others.map((c) => c.microsoftUpn));
     }
 
     await storage.updateCandidateFields(candidate.row, updates);
@@ -224,6 +231,13 @@ app.post('/api/offboardings', express.json(), async (req, res) => {
     const missing = OFF_REQUIRED_FIELDS.filter((f) => !req.body[f]);
     if (missing.length) {
       return res.status(400).json({ success: false, error: `Mangler felt: ${missing.join(', ')}` });
+    }
+
+    // Only sellers can be offboarded (see microsoft.checkOffboardable) — refuse up front so a typo
+    // or a non-seller address never becomes a registered offboarding that disables an account.
+    const allowed = await require('./microsoft').checkOffboardable(String(req.body.microsoftUpn).trim());
+    if (!allowed.ok) {
+      return res.status(400).json({ success: false, error: allowed.reason });
     }
 
     const off = await storage.createOffboarding({
@@ -428,7 +442,8 @@ app.post('/api/reconcile', async (req, res) => {
   }
 });
 
-// Scan for failed/stuck steps and email a summary. Manual trigger; also runs on a schedule.
+// Scan for failed/stuck steps and email a summary. Manual trigger only: the daily 08:00 schedule
+// was removed (the "trenger oppmerksomhet" mail was unwanted); call this endpoint to run it on demand.
 app.post('/api/check-alerts', async (req, res) => {
   try {
     const result = await monitoring.checkAlerts();
@@ -489,16 +504,6 @@ if (config.demoMode) {
       console.error('Cron reconcile error:', e.message);
     }
   }, { timezone: 'Europe/Oslo' });
-
-  // Daily drift alert at 08:00 — emails a summary if any step is failed or a contract is stuck.
-  cron.schedule('0 8 * * *', async () => {
-    try {
-      const result = await monitoring.checkAlerts();
-      if (result.alerts) console.log(`Cron: drifts-varsel — ${result.alerts} problem(er)${result.sent ? ' (sendt)' : ''}.`);
-    } catch (e) {
-      console.error('Cron check-alerts error:', e.message);
-    }
-  }, { timezone: 'Europe/Oslo' });
 }
 
 // ============================================================
@@ -510,7 +515,7 @@ const server = app.listen(config.port, () => {
   console.log(`Test mode: ${config.testMode}`);
   console.log(`Demo mode: ${config.demoMode}`);
   if (!config.demoMode) {
-    console.log('Cron jobs: bursdagssjekk (07:00), avstemming (hver 30. min), drifts-varsel (08:00) — Europe/Oslo');
+    console.log('Cron jobs: bursdagssjekk (07:00), avstemming (hver 30. min) — Europe/Oslo');
   }
   configCheck.logStartupChecks();
 });

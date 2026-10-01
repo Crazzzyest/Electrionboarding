@@ -7,7 +7,8 @@ const config = require('./config');
 const storage = require('./storage');
 const microsoft = require('./microsoft');
 const mail = require('./graph-mail');
-const { formatDateNo } = require('./utils');
+const salesscreen = require('./salesscreen');
+const { formatDateNo, escapeHtml: esc } = require('./utils');
 const { STEG_STATUS, LOGG_HANDLING, LOGG_KILDE } = require('./columns');
 
 const rowsInProgress = new Set();
@@ -34,6 +35,10 @@ async function offboardMicrosoft(o) {
     return { ok: false, error: 'Mangler Electi e-post (UPN) — kan ikke finne kontoen', retryable: true };
   }
   try {
+    // Re-checked here, not only at registration: this is the step that actually disables/deletes,
+    // so it must hold for rows created before the guard existed and for manual retries too.
+    const allowed = await microsoft.checkOffboardable(o.microsoftUpn);
+    if (!allowed.ok) return { ok: false, error: allowed.reason, retryable: false };
     const res = await microsoft.offboardUser(o.microsoftUpn, config.offboarding.microsoftAction);
     return { ok: true, details: res.details };
   } catch (e) {
@@ -46,11 +51,11 @@ function offboardTelenorHtml(o) {
     <p>Hei,</p>
     <p>Følgende selger slutter og skal avsluttes:</p>
     <p>
-      ${o.navn}<br>
-      ${o.microsoftUpn || ''}<br>
-      Sluttdato: ${formatDateNo(o.sluttdato) || 'ikke oppgitt'}
+      ${esc(o.navn)}<br>
+      ${esc(o.microsoftUpn || '')}<br>
+      Sluttdato: ${esc(formatDateNo(o.sluttdato) || 'ikke oppgitt')}
     </p>
-    <p>Mvh<br>${o.registrertAv || 'Electi'}</p>
+    <p>Mvh<br>${esc(o.registrertAv || 'Electi')}</p>
   `;
 }
 
@@ -66,34 +71,31 @@ async function offboardTelenor(o) {
   }
 }
 
-// SalesScreen's connect API is write-only with no confirmed deactivation endpoint, so this step is
-// an honest human handoff: a reminder mail asking someone to deactivate the user in the UI.
+// Deactivates the seller in SalesScreen via the connect API (User/DisableByEmail). The user is
+// only disabled, not deleted, so history stays. The login address is the @electi.no work address
+// (what onboarding registered in SalesScreen). "User not found" is deliberately a FAILURE, not a
+// silent success: it usually means the user sits in SalesScreen under another address (e.g. an old
+// .eu one), and treating that as done would leave an active account for someone who has left.
 async function offboardSalesscreen(o) {
   if (config.demoMode) return { ok: true, demoMode: true };
-  const to = config.offboarding.salesscreenVarselEpost;
-  if (!to) {
-    return {
-      ok: false,
-      error: 'OFFBOARDING_SALESSCREEN_EPOST (eller OFFBOARDING_PROVISJON_EPOST) er ikke satt',
-      retryable: true,
-    };
+  const email = o.microsoftUpn || o.privatEpost;
+  if (!email) {
+    return { ok: false, error: 'Mangler e-postadresse — kan ikke finne SalesScreen-brukeren', retryable: true };
+  }
+  if (!config.salesscreen.apiKey) {
+    return { ok: false, error: 'SALESSCREEN_API_KEY er ikke satt', retryable: true };
   }
   try {
-    await mail.sendEmail(
-      to,
-      `Handling kreves: deaktiver ${o.navn} i SalesScreen`,
-      `<p>Følgende ansatt slutter og skal deaktiveres i <strong>SalesScreen</strong>:</p>
-       <p>
-         <strong>Navn:</strong> ${o.navn}<br>
-         <strong>SalesScreen-bruker (e-post):</strong> ${o.microsoftUpn || o.privatEpost || 'ukjent'}<br>
-         <strong>Sluttdato:</strong> ${formatDateNo(o.sluttdato) || '(ikke oppgitt)'}<br>
-         <strong>Har krav på provisjon:</strong> ${o.harProvisjon || 'Nei'}${o.harProvisjon === 'Ja' ? ' (har solgt noe — provisjonsoppgjør må behandles)' : ''}
-       </p>
-       <p>Slik gjør du det: logg inn på SalesScreen → <em>Manage → Users</em> → søk opp brukeren → deaktiver/fjern.</p>
-       <p><small>SalesScreens API har ingen deaktiverings-funksjon (verifisert 2026-09-09), så dette steget må gjøres manuelt.</small></p>`,
-    );
-    return { ok: true };
+    await salesscreen.disableByEmail(email);
+    return { ok: true, details: { disabled: email } };
   } catch (e) {
+    if (/User not found/i.test(e.message)) {
+      return {
+        ok: false,
+        error: `Fant ingen SalesScreen-bruker med adressen ${email}. Sjekk om brukeren ligger under en annen adresse (for eksempel .eu) og deaktiver manuelt.`,
+        retryable: false,
+      };
+    }
     return { ok: false, error: e.message, retryable: true };
   }
 }
@@ -108,7 +110,7 @@ async function offboardProvisjon(o) {
     await mail.sendEmail(
       to,
       `Provisjonskrav ved avslutning: ${o.navn}`,
-      `<p>${o.navn} slutter ${formatDateNo(o.sluttdato) || '(dato ikke oppgitt)'} og har krav på provisjon.</p>
+      `<p>${esc(o.navn)} slutter ${esc(formatDateNo(o.sluttdato) || '(dato ikke oppgitt)')} og har krav på provisjon.</p>
        <p>Provisjonspapirene må behandles manuelt.</p>`,
     );
     return { ok: true };

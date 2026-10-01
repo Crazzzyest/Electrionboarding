@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 function generateKandidatId(year, seq) {
   return `ONB-${year}-${String(seq).padStart(3, '0')}`;
 }
@@ -6,19 +8,38 @@ function generateOffboardingId(year, seq) {
   return `OFB-${year}-${String(seq).padStart(3, '0')}`;
 }
 
+// crypto.randomInt, not Math.random: this password guards a real Microsoft 365 account until the
+// employee changes it, so it must not be predictable. Fisher-Yates shuffle (also crypto-backed) so
+// the fixed-category prefix isn't predictable either.
 function generateTempPassword() {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const lower = 'abcdefghijkmnpqrstuvwxyz';
   const digits = '23456789';
   const symbols = '!@#$%&*';
-  const pick = (chars) => chars[Math.floor(Math.random() * chars.length)];
+  const pick = (chars) => chars[crypto.randomInt(chars.length)];
 
-  let pwd = pick(upper) + pick(lower) + pick(digits) + pick(symbols);
+  const chars = [pick(upper), pick(lower), pick(digits), pick(symbols)];
   const all = upper + lower + digits + symbols;
-  for (let i = 0; i < 8; i++) pwd += pick(all);
+  for (let i = 0; i < 10; i++) chars.push(pick(all));
 
-  // Shuffle so the fixed-category prefix isn't predictable.
-  return pwd.split('').sort(() => Math.random() - 0.5).join('');
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
+
+// Escape a value for interpolation into HTML (emails and anything rendered as HTML). Every
+// user-supplied field (names, stilling, "registrert av", error messages echoed from external APIs)
+// goes through this, so a name like <a href=...> can't inject links or markup into mail sent from
+// Electi's own mailbox.
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Excel (via Graph) returns date-typed cells as a serial NUMBER (e.g. 46272), not the "YYYY-MM-DD"
@@ -84,6 +105,7 @@ module.exports = {
   excelSerialToISO,
   formatDateNo,
   generateTempPassword,
+  escapeHtml,
   slugifyName,
   todayInTimezone,
   isSameMonthDay,

@@ -20,7 +20,7 @@ const rowsInProgress = new Set();
 // step runs later or is retried independently) — so it mints a fresh one via Graph right here.
 async function ensureVelkommen(candidate, ctx) {
   try {
-    const tempPassword = await microsoft.resetTempPassword(candidate.microsoftUserId);
+    const tempPassword = await microsoft.resetTempPassword(candidate.microsoftUserId, candidate.kandidatId);
     return await sendWelcomeEmail(candidate, { ...ctx, tempPassword });
   } catch (e) {
     return { ok: false, error: e.message, retryable: true };

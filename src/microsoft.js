@@ -6,25 +6,59 @@ const config = require('./config');
 const { slugifyName, generateTempPassword } = require('./utils');
 const { GRAPH_BASE, graphRequest } = require('./graph-client');
 
-function buildUpn(candidate) {
-  const local = `${slugifyName(candidate.fornavn)}.${slugifyName(candidate.etternavn)}`;
+function buildUpn(candidate, suffix = '') {
+  const local = `${slugifyName(candidate.fornavn)}.${slugifyName(candidate.etternavn)}${suffix}`;
   return `${local}@${config.microsoft.domain}`;
 }
 
+// Every account this app creates is stamped with the candidate's kandidatId in Graph's employeeId
+// field. That stamp is the ONLY proof an existing account is ours: without it, registering a
+// "new hire" with the same name as a current employee would adopt that employee's account and the
+// welcome step would reset their password and mail it to whatever private address was typed in.
+function isOwnedBy(user, kandidatId) {
+  return Boolean(user && kandidatId && user.employeeId === kandidatId);
+}
+
 async function findUserByUpn(upn) {
-  const res = await graphRequest('GET', `/users/${encodeURIComponent(upn)}?$select=id,userPrincipalName,assignedLicenses`);
+  const res = await graphRequest('GET', `/users/${encodeURIComponent(upn)}?$select=id,userPrincipalName,assignedLicenses,employeeId`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Graph GET user-feil: ${res.status} ${await res.text()}`);
   return res.json();
 }
 
-async function createUser(candidate, upn) {
+// Any user already using the address, as sign-in name, primary mail or alias (proxyAddresses) —
+// a UPN that is free can still collide with someone's alias, and Exchange would reject it.
+async function findUsersByAddress(address) {
+  const a = address.replace(/'/g, "''");
+  const filter = `userPrincipalName eq '${a}' or mail eq '${a}' or proxyAddresses/any(p:p eq 'smtp:${a}')`;
+  const res = await graphRequest('GET', `/users?$filter=${encodeURIComponent(filter)}&$select=id,userPrincipalName,employeeId`);
+  if (!res.ok) throw new Error(`Graph adresse-oppslag feilet: ${res.status} ${await res.text()}`);
+  return (await res.json()).value || [];
+}
+
+// Picks the first free @electi.no address for a candidate: ola.nordmann, then ola.nordmann2, 3, ...
+// "Free" means neither another candidate in storage (takenUpns) nor any existing Microsoft account
+// holds it — except an account this same candidate already owns (a retry after a partial failure).
+async function allocateUpn(candidate, takenUpns = []) {
+  const taken = new Set(takenUpns.map((u) => String(u || '').trim().toLowerCase()).filter(Boolean));
+  for (let n = 1; n <= 50; n += 1) {
+    const upn = buildUpn(candidate, n === 1 ? '' : String(n));
+    if (taken.has(upn.toLowerCase())) continue;
+    if (config.demoMode) return upn;
+    const holders = await findUsersByAddress(upn);
+    if (holders.every((u) => isOwnedBy(u, candidate.kandidatId))) return upn;
+  }
+  throw new Error('Fant ingen ledig @electi.no-adresse for dette navnet');
+}
+
+async function createUser(candidate, upn, kandidatId) {
   const tempPassword = generateTempPassword();
   const body = {
     accountEnabled: true,
     displayName: `${candidate.fornavn} ${candidate.etternavn}`,
-    mailNickname: `${slugifyName(candidate.fornavn)}.${slugifyName(candidate.etternavn)}`,
+    mailNickname: upn.split('@')[0],
     userPrincipalName: upn,
+    employeeId: kandidatId, // ownership stamp — see isOwnedBy
     passwordProfile: {
       forceChangePasswordNextSignIn: true,
       password: tempPassword,
@@ -65,8 +99,16 @@ async function ensureLicense(userId) {
 // may run well after (or be retried independently of) account creation — the original creation
 // password is deliberately never persisted, so the welcome step needs a way to get a valid
 // password at the moment it actually sends, not depend on a value from an earlier step call.
-async function resetTempPassword(userId) {
+async function resetTempPassword(userId, kandidatId) {
   if (config.demoMode) return 'Demo1234!';
+
+  // Never reset a password on an account this app didn't create for this candidate — that would
+  // hand a working employee's login to whoever's private e-mail is on the candidate row.
+  const check = await graphRequest('GET', `/users/${userId}?$select=id,employeeId`);
+  if (!check.ok) throw new Error(`Graph GET user-feil: ${check.status} ${await check.text()}`);
+  if (!isOwnedBy(await check.json(), kandidatId)) {
+    throw new Error('Kontoen ble ikke opprettet av onboarding for denne kandidaten — passordet tilbakestilles ikke.');
+  }
 
   const tempPassword = generateTempPassword();
   const res = await graphRequest('PATCH', `/users/${userId}`, {
@@ -124,6 +166,33 @@ async function withPropagationRetry(fn, attempts = 5, delayMs = 3000) {
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
+}
+
+// Offboarding guard. The offboarding form takes a free-text address, and disabling/deleting is
+// destructive — so only sellers may be offboarded: an account this app created (employeeId stamp),
+// or a member of one of the configured seller groups (covers sellers hired before this app — they
+// must be added to the group; checked 2026-09-28 the Salg group held only 3 members, and the seller
+// licence is no substitute: managers hold it too). Anyone
+// else (management, admins, shared mailboxes) is refused. A missing account passes — there is
+// nothing to disable, and offboardUser already treats that as done.
+async function checkOffboardable(upn) {
+  if (config.demoMode) return { ok: true };
+  const user = await findUserByUpn(upn);
+  if (!user) return { ok: true, notFound: true };
+  if (/^ONB-/.test(user.employeeId || '')) return { ok: true };
+
+  const groupIds = [...new Set(Object.values(config.microsoft.groupIdsByAvdeling).flat())];
+  if (groupIds.length) {
+    const res = await graphRequest('POST', `/users/${user.id}/checkMemberGroups`, { groupIds });
+    if (!res.ok) throw new Error(`Graph checkMemberGroups-feil: ${res.status} ${await res.text()}`);
+    const { value } = await res.json();
+    if ((value || []).length) return { ok: true };
+  }
+  return {
+    ok: false,
+    reason: `${upn} er ikke opprettet av onboarding og er ikke med i Salg-gruppen, så offboarding er avvist. `
+      + 'Er personen selger, legg vedkommende i Salg-gruppen i Microsoft 365 og prøv igjen.',
+  };
 }
 
 // Offboarding: block or remove a departing employee's Microsoft 365 account. 'disable' sets
@@ -184,9 +253,18 @@ async function ensure(candidate, ctx) {
     let tempPassword = null;
 
     if (!user) {
-      const created = await createUser(candidate, upn);
+      const created = await createUser(candidate, upn, ctx.kandidatId);
       user = created.user;
       tempPassword = created.tempPassword;
+    } else if (!isOwnedBy(user, ctx.kandidatId)) {
+      // Someone else already has this address (a current employee with the same name, or an
+      // account created outside this app). Refuse rather than adopt it — adopting would give the
+      // new hire that person's mailbox and let the welcome step reset their password.
+      return {
+        ok: false,
+        error: `Adressen ${upn} tilhører allerede en annen konto. Rediger kandidatens navn for å få en ny adresse.`,
+        retryable: false,
+      };
     }
 
     // Wrapped in propagation-retry: on a just-created account these can 404 until Azure AD catches
@@ -200,10 +278,8 @@ async function ensure(candidate, ctx) {
       details: {
         upn: user.userPrincipalName || upn,
         tempPassword, // only non-null the run that actually created the account — never persisted
-        // True when the account already existed. Normally that just means this step is being
-        // retried. It would also be true if a *different* person already holds this address
-        // (two hires with the same name) — rare at Electi's size, but it would mean the new hire
-        // is adopted onto someone else's mailbox, so it is surfaced in the log rather than hidden.
+        // True when the account already existed — only possible for an account stamped with this
+        // candidate's kandidatId, i.e. a retry after a partial failure (foreign accounts are refused).
         alreadyExisted: !tempPassword,
         licenseAssigned: license.assigned,
         licenseNote: license.note,
@@ -216,4 +292,6 @@ async function ensure(candidate, ctx) {
   }
 }
 
-module.exports = { ensure, buildUpn, resetTempPassword, offboardUser };
+module.exports = {
+  ensure, buildUpn, allocateUpn, isOwnedBy, resetTempPassword, checkOffboardable, offboardUser,
+};

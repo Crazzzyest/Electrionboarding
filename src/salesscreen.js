@@ -52,4 +52,18 @@ async function ensure(candidate, ctx) {
   }
 }
 
-module.exports = { ensure };
+// Deactivates a user by e-mail (offboarding). Endpoint and body confirmed 2026-10-01 from SalesScreen's
+// published API collection (/Support Function/User/DisableByEmail) and by SalesScreen support.
+// Disables only — the user and their history stay in SalesScreen. Never touches storage.
+async function disableByEmail(email) {
+  const res = await fetch(`${config.salesscreen.baseUrl}/User/DisableByEmail`, {
+    method: 'POST',
+    headers: { apiKey: config.salesscreen.apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`SalesScreen DisableByEmail-feil: ${res.status} ${text}`);
+  return { status: res.status, body: text };
+}
+
+module.exports = { ensure, disableByEmail };

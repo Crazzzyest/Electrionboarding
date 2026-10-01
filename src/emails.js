@@ -3,20 +3,21 @@
 // adapters, even though sending an email isn't a third-party integration in the same sense.
 const config = require('./config');
 const mail = require('./graph-mail');
+const { escapeHtml: esc } = require('./utils');
 
 function buildWelcomeEmailHtml(candidate, tempPassword) {
   return `
-    <p>Hei ${candidate.fornavn},</p>
+    <p>Hei ${esc(candidate.fornavn)},</p>
     <p>Velkommen til Electi! Din nye Microsoft-konto er klar:</p>
     <p>
       <strong>Logg inn:</strong> <a href="https://portal.office.com">https://portal.office.com</a><br>
-      <strong>Brukernavn:</strong> ${candidate.microsoftUpn}<br>
-      <strong>Midlertidig passord:</strong> ${tempPassword}<br>
+      <strong>Brukernavn:</strong> ${esc(candidate.microsoftUpn)}<br>
+      <strong>Midlertidig passord:</strong> ${esc(tempPassword)}<br>
       (du blir bedt om å bytte passord ved første innlogging)
     </p>
     <p>E-posten din finner du på <a href="https://outlook.office.com">https://outlook.office.com</a>. Merk: det kan ta noen minutter før innboksen din blir tilgjengelig etter at kontoen er opprettet.</p>
     <h3 style="margin-top:20px;">Tjenester du skal koble deg til</h3>
-    <p>Bruk e-postadressen din <strong>${candidate.microsoftUpn}</strong> når du kobler deg til disse:</p>
+    <p>Bruk e-postadressen din <strong>${esc(candidate.microsoftUpn)}</strong> når du kobler deg til disse:</p>
     <ul>
       <li><strong>Hyre</strong> (bilutleie): <a href="${config.email.hyreJoinUrl}">${config.email.hyreJoinUrl}</a><br>
         Skriv inn @electi.no-adressen din, så mottar du en invitasjon til Electis bedriftskonto.</li>
@@ -36,8 +37,8 @@ function buildWelcomeEmailHtml(candidate, tempPassword) {
 
 function buildBirthdayEmailHtml(candidate) {
   return `
-    <p>${candidate.fornavn} ${candidate.etternavn} har bursdag i dag! 🎉</p>
-    <p>Avdeling: ${candidate.avdeling}</p>
+    <p>${esc(candidate.fornavn)} ${esc(candidate.etternavn)} har bursdag i dag! 🎉</p>
+    <p>Avdeling: ${esc(candidate.avdeling)}</p>
   `;
 }
 
@@ -53,6 +54,8 @@ async function sendWelcomeEmail(candidate, ctx) {
       candidate.privatEpost,
       'Velkommen til Electi!',
       buildWelcomeEmailHtml(candidate, ctx.tempPassword),
+      // Contains a live temp password: don't leave a copy in the sender mailbox's Sent Items.
+      { saveToSentItems: false },
     );
     return { ok: true };
   } catch (e) {

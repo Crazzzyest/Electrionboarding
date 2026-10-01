@@ -144,7 +144,8 @@ const config = {
     baseUrl: 'https://connect.salesscreen.com/api/v1',
     createUserEndpoint: '/User/Add',
     // New hires should land in Electi's leadership/manager team ("ledergruppen"). The SalesScreen
-    // "connect" API is WRITE-ONLY — verified 2026-09-05: every list endpoint (/Team, /Team/List,
+    // NB: deactivation DOES exist (POST /User/DisableByEmail, used by offboarding; confirmed 2026-10-01).
+    // The rest of the "connect" API is WRITE-ONLY — verified 2026-09-05: every list endpoint (/Team, /Team/List,
     // /Group, /User/List, …) returns 404, and SalesScreen's own API FAQ says team management must
     // be done in the platform, not via the API — so the exact team can't be discovered
     // programmatically. It lives in SalesScreen under Settings -> Mappings.
@@ -190,10 +191,6 @@ const config = {
     microsoftAction: (process.env.OFFBOARDING_MICROSOFT_ACTION || 'disable').trim().toLowerCase(),
     // Where the commission-handling notice goes when a departing seller has provisjonskrav.
     provisjonEpost: (process.env.OFFBOARDING_PROVISJON_EPOST || '').trim(),
-    // SalesScreen's connect API is write-only with no confirmed deactivation endpoint, so that step
-    // is a human handoff: a reminder mail to this address. Defaults to the provisjon recipient.
-    salesscreenVarselEpost: (process.env.OFFBOARDING_SALESSCREEN_EPOST
-      || process.env.OFFBOARDING_PROVISJON_EPOST || '').trim(),
     // Telenor cancellation mail. Recipients default to the same order contacts as onboarding.
     telenorSubject: process.env.OFFBOARDING_TELENOR_SUBJECT || 'Avslutning selger',
     telenorTo: (process.env.OFFBOARDING_TELENOR_TO || '').split(',').map((s) => s.trim()).filter(Boolean),

@@ -11,6 +11,7 @@
 // Never touches storage — onboarding.js owns all Status_*/timestamp writes.
 const config = require('./config');
 const mail = require('./graph-mail');
+const { escapeHtml: esc } = require('./utils');
 
 // Stable token used only for the duplicate-send check. Kept out of the subject line so the mail
 // Telenor receives looks exactly like the one Magnus sends by hand; it rides along in the body
@@ -29,11 +30,11 @@ function buildOrderHtml(candidate) {
     <p>Hei,</p>
     <p>Trenger brukere til f&oslash;lgende:</p>
     <p>
-      ${candidate.fornavn} ${candidate.etternavn}<br>
-      ${formatPhone(candidate.mobil)}<br>
-      ${candidate.microsoftUpn}
+      ${esc(candidate.fornavn)} ${esc(candidate.etternavn)}<br>
+      ${esc(formatPhone(candidate.mobil))}<br>
+      ${esc(candidate.microsoftUpn)}
     </p>
-    <p>Mvh<br>${candidate.registrertAv || 'Electi'}</p>
+    <p>Mvh<br>${esc(candidate.registrertAv || 'Electi')}</p>
     <p style="color:#ffffff;font-size:1px;">${idToken(candidate.kandidatId)}</p>
   `;
 }

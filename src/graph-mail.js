@@ -13,7 +13,7 @@ function mailboxPath() {
 }
 
 // `to` and `cc` accept a single address or an array, matching the old google.js signature.
-async function sendEmail(to, subject, html, { cc } = {}) {
+async function sendEmail(to, subject, html, { cc, saveToSentItems = true } = {}) {
   const toList = Array.isArray(to) ? to : [to];
   const message = {
     subject,
@@ -24,7 +24,7 @@ async function sendEmail(to, subject, html, { cc } = {}) {
     message.ccRecipients = (Array.isArray(cc) ? cc : [cc]).map((address) => ({ emailAddress: { address } }));
   }
 
-  await graphJson('POST', `${mailboxPath()}/sendMail`, { message, saveToSentItems: true });
+  await graphJson('POST', `${mailboxPath()}/sendMail`, { message, saveToSentItems });
 }
 
 // Used only for the Telenor-order idempotency check (see telenor.js) — Graph's unqualified

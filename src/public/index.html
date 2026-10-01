@@ -161,6 +161,14 @@
 </div>
 
 <script>
+// Every request carries the CSRF header the server requires on state-changing /api calls (see
+// csrfGuard in src/auth.js). Wrapping fetch once means no call site can forget it.
+const nativeFetch = window.fetch.bind(window);
+window.fetch = (url, opts = {}) => nativeFetch(url, {
+  ...opts,
+  headers: { ...(opts.headers || {}), 'X-Requested-With': 'electi-onboarding' },
+});
+
 const STEPS = [
   { key: 'statusMicrosoft365', label: 'Microsoft365', step: 'microsoft365' },
   { key: 'statusTelenor', label: 'Telenor', step: 'telenor' },
@@ -189,10 +197,15 @@ function badgeClass(status) {
   return 'badge-' + String(status || '').toLowerCase().replace(/ø/g, 'o').replace(/å/g, 'a').replace(/\s+/g, '-');
 }
 
-// Escape a value for safe use inside an HTML attribute (edit-form input values).
-function attr(v) {
-  return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+// Escape a value for safe use in HTML text AND attributes. Every server-provided value that goes
+// into innerHTML passes through this: names, stilling, log messages and error texts (which can echo
+// input back from external APIs) are all user-influenced, so none of them may be rendered as markup.
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+const attr = esc;
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -252,12 +265,12 @@ function renderCandidate(c) {
   return `
     <div class="candidate" data-row="${c.row}">
       <div class="candidate-head" id="head-${c.row}">
-        <div class="candidate-name">${c.fornavn} ${c.etternavn}</div>
-        <div class="candidate-meta">${c.stilling} · ${c.avdeling} · ${c.kandidatId}</div>
+        <div class="candidate-name">${esc(c.fornavn)} ${esc(c.etternavn)}</div>
+        <div class="candidate-meta">${esc(c.stilling)} · ${esc(c.avdeling)} · ${esc(c.kandidatId)}</div>
       </div>
       <div class="badges">
-        <span class="badge ${badgeClass(c.statusKontrakt)}">Kontrakt: ${c.statusKontrakt}</span>
-        ${STEPS.map((s) => `<span class="badge ${badgeClass(c[s.key])}">${s.label}: ${c[s.key]}</span>`).join('')}
+        <span class="badge ${esc(badgeClass(c.statusKontrakt))}">Kontrakt: ${esc(c.statusKontrakt)}</span>
+        ${STEPS.map((s) => `<span class="badge ${esc(badgeClass(c[s.key]))}">${s.label}: ${esc(c[s.key])}</span>`).join('')}
       </div>
       <div class="detail ${isOpen ? 'open' : ''}" id="detail-${c.row}"></div>
     </div>
@@ -284,7 +297,7 @@ async function loadDetail(row) {
     const status = c[s.key];
     return `
       <div class="detail-row">
-        <span>${s.label}: <strong>${status}</strong></span>
+        <span>${s.label}: <strong>${esc(status)}</strong></span>
         <span class="detail-actions">
           <button class="btn btn-outline btn-sm retry-btn" data-row="${row}" data-step="${s.step}">Kjør på nytt</button>
         </span>
@@ -324,18 +337,18 @@ async function loadDetail(row) {
     </form>`;
 
   const logHtml = (data.log || []).length
-    ? data.log.map((e) => `<div class="log-entry">${fmtDate(e.tidspunkt)} — <strong>${e.steg}</strong> ${e.handling}${e.melding ? ' — ' + e.melding : ''} <em>(${e.kilde})</em></div>`).join('')
+    ? data.log.map((e) => `<div class="log-entry">${esc(fmtDate(e.tidspunkt))} — <strong>${esc(e.steg)}</strong> ${esc(e.handling)}${e.melding ? ' — ' + esc(e.melding) : ''} <em>(${esc(e.kilde)})</em></div>`).join('')
     : '<div class="log-entry">Ingen hendelser ennå.</div>';
 
   const html = `
     <div class="detail-row">
-      <span>Kontrakt: <strong>${c.statusKontrakt}</strong> ${c.docusignEnvelopeId ? '(' + c.docusignEnvelopeId + ')' : ''}</span>
+      <span>Kontrakt: <strong>${esc(c.statusKontrakt)}</strong> ${c.docusignEnvelopeId ? '(' + esc(c.docusignEnvelopeId) + ')' : ''}</span>
       <span class="detail-actions">${contractActions.join('')}</span>
     </div>
     ${editForm}
     ${rows}
     <div class="detail-row"><button class="btn btn-outline btn-sm retryall-btn" data-row="${row}">Kjør alle ventende steg på nytt</button></div>
-    ${c.sisteFeilmelding ? '<div class="form-msg err">Siste feil: ' + c.sisteFeilmelding + '</div>' : ''}
+    ${c.sisteFeilmelding ? '<div class="form-msg err">Siste feil: ' + esc(c.sisteFeilmelding) + '</div>' : ''}
     <div class="log">${logHtml}</div>
   `;
   // Skip the DOM write when the detail is unchanged — keeps the log's scroll position and avoids
@@ -472,11 +485,11 @@ function renderOffboarding(o) {
   return `
     <div class="candidate" data-row="${o.row}">
       <div class="candidate-head" id="offhead-${o.row}">
-        <div class="candidate-name">${o.navn}</div>
-        <div class="candidate-meta">Slutt: ${o.sluttdato || '—'} · Provisjon: ${o.harProvisjon} · ${o.offboardingId}</div>
+        <div class="candidate-name">${esc(o.navn)}</div>
+        <div class="candidate-meta">Slutt: ${esc(o.sluttdato || '—')} · Provisjon: ${esc(o.harProvisjon)} · ${esc(o.offboardingId)}</div>
       </div>
       <div class="badges">
-        ${OFF_STEPS.map((s) => `<span class="badge ${badgeClass(o[s.key])}">${s.label}: ${o[s.key]}</span>`).join('')}
+        ${OFF_STEPS.map((s) => `<span class="badge ${esc(badgeClass(o[s.key]))}">${s.label}: ${esc(o[s.key])}</span>`).join('')}
       </div>
       <div class="detail ${isOpen ? 'open' : ''}" id="offdetail-${o.row}"></div>
     </div>
@@ -499,7 +512,7 @@ async function loadOffDetail(row) {
   const o = data.offboarding;
   const rows = OFF_STEPS.map((s) => `
     <div class="detail-row">
-      <span>${s.label}: <strong>${o[s.key]}</strong></span>
+      <span>${s.label}: <strong>${esc(o[s.key])}</strong></span>
       <span class="detail-actions">
         <button class="btn btn-outline btn-sm off-retry-btn" data-row="${row}" data-step="${s.step}">Kjør på nytt</button>
       </span>
@@ -507,14 +520,14 @@ async function loadOffDetail(row) {
   `).join('');
 
   const logHtml = (data.log || []).length
-    ? data.log.map((e) => `<div class="log-entry">${fmtDate(e.tidspunkt)} — <strong>${e.steg}</strong> ${e.handling}${e.melding ? ' — ' + e.melding : ''} <em>(${e.kilde})</em></div>`).join('')
+    ? data.log.map((e) => `<div class="log-entry">${esc(fmtDate(e.tidspunkt))} — <strong>${esc(e.steg)}</strong> ${esc(e.handling)}${e.melding ? ' — ' + esc(e.melding) : ''} <em>(${esc(e.kilde)})</em></div>`).join('')
     : '<div class="log-entry">Ingen hendelser ennå.</div>';
 
   const html = `
-    <div class="detail-row"><span>Registrert av <strong>${o.registrertAv || '—'}</strong> ${o.utfortDato ? '· utført ' + fmtDate(o.utfortDato) : ''}</span></div>
+    <div class="detail-row"><span>Registrert av <strong>${esc(o.registrertAv || '—')}</strong> ${o.utfortDato ? '· utført ' + esc(fmtDate(o.utfortDato)) : ''}</span></div>
     ${rows}
     <div class="detail-row"><button class="btn btn-outline btn-sm off-retryall-btn" data-row="${row}">Kjør alle ventende steg på nytt</button></div>
-    ${o.sisteFeilmelding ? '<div class="form-msg err">Siste feil: ' + o.sisteFeilmelding + '</div>' : ''}
+    ${o.sisteFeilmelding ? '<div class="form-msg err">Siste feil: ' + esc(o.sisteFeilmelding) + '</div>' : ''}
     <div class="log">${logHtml}</div>
   `;
   if (html !== offLastDetailHtml) {
